@@ -1,0 +1,53 @@
+name: Deploy to EKS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Allows manual trigger from GitHub UI
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name ${{ secrets.EKS_CLUSTER_NAME }} \
+            --region ${{ secrets.AWS_REGION }}
+
+      - name: Verify authentication
+        run: |
+          echo "Testing cluster connectivity..."
+          kubectl cluster-info
+          echo ""
+          echo "Verifying permissions..."
+          kubectl auth can-i create pods -n ${{ secrets.K8S_NAMESPACE }}
+          kubectl auth can-i create deployments -n ${{ secrets.K8S_NAMESPACE }}
+
+      - name: Deploy to Kubernetes
+        run: |
+          echo "Deploying to namespace: ${{ secrets.K8S_NAMESPACE }}"
+          kubectl apply -f k8s/ -n ${{ secrets.K8S_NAMESPACE }}
+
+      - name: Verify deployment
+        run: |
+          echo "Waiting for deployment to be ready..."
+          kubectl rollout status deployment/sample-app -n ${{ secrets.K8S_NAMESPACE }} --timeout=5m
+          echo ""
+          echo "Deployment successful! Listing pods:"
+          kubectl get pods -n ${{ secrets.K8S_NAMESPACE }}
+          echo ""
+          echo "Listing services:"
+          kubectl get services -n ${{ secrets.K8S_NAMESPACE }}
