@@ -29,13 +29,11 @@ jobs:
 
       - name: Verify authentication
         run: |
-          echo "Verifying access to namespace: ${{ secrets.K8S_NAMESPACE }}"
-          kubectl get namespace ${{ secrets.K8S_NAMESPACE }}
-          echo ""
-          echo "Verifying permissions..."
+          echo "Verifying permissions in namespace: ${{ secrets.K8S_NAMESPACE }}"
           kubectl auth can-i create pods -n ${{ secrets.K8S_NAMESPACE }}
           kubectl auth can-i create deployments -n ${{ secrets.K8S_NAMESPACE }}
           kubectl auth can-i create services -n ${{ secrets.K8S_NAMESPACE }}
+          echo "✅ All permission checks passed!"
 
       - name: Deploy to Kubernetes
         run: |
