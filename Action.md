@@ -231,7 +231,7 @@ AWS_PROFILE=staging-server aws s3api put-public-access-block --bucket nextera-cs
 **Why:** Create S3 bucket for storing CSA contract documents (matches IAM policy pattern `nextera-csa-*-documents`).
 **Status:** ✅ COMPLETED - Bucket: `nextera-csa-poc-documents` (versioning enabled, encrypted, public access blocked)
 
-### 25. Create SQS Queues for Async Processing
+### 25. Create SQS Queues for Async Processing (Initial 3 Queues)
 ```bash
 AWS_PROFILE=staging-server aws sqs create-queue --queue-name csa-poc-contract-discovery --region us-east-1
 AWS_PROFILE=staging-server aws sqs create-queue --queue-name csa-poc-extraction-tasks --region us-east-1
@@ -239,6 +239,13 @@ AWS_PROFILE=staging-server aws sqs create-queue --queue-name csa-poc-siren-load 
 ```
 **Why:** Create SQS queues for async communication between services (matches IAM policy pattern `csa-poc-*`).
 **Status:** ✅ COMPLETED - Queues: `csa-poc-contract-discovery`, `csa-poc-extraction-tasks`, `csa-poc-siren-load`
+
+### 25b. Create Missing SQS Queues (Per design-updated.md)
+```bash
+AWS_PROFILE=staging-server aws sqs create-queue --queue-name csa-poc-contract-ingestion --region us-east-1
+AWS_PROFILE=staging-server aws sqs create-queue --queue-name csa-poc-notification --region us-east-1
+```
+**Why:** design-updated.md specifies 5 queues total. Missing: ingestion-queue (contract-ingestion→ai-extraction) and notification-queue (for notification service).
 
 ### 26. Create AWS Secrets Manager Secrets
 ```bash
@@ -274,6 +281,19 @@ kubectl get deployment -n kube-system aws-load-balancer-controller
 ```
 **Why:** Cluster-level infrastructure (not part of GitHub Actions). Required for Ingress → ALB creation. Uses IRSA ServiceAccount from step 7.
 **Status:** ✅ COMPLETED - Controller deployed with 2 replicas, both pods Running. Ready to create ALBs from Ingress resources.
+
+### 29. Create Missing SQS Queues Per design-updated.md
+```bash
+AWS_PROFILE=staging-server aws sqs create-queue --queue-name csa-poc-contract-ingestion --region us-east-1
+AWS_PROFILE=staging-server aws sqs create-queue --queue-name csa-poc-notification --region us-east-1
+```
+**Why:** design-updated.md specifies 5 queues total. Previously created only 3. Missing: contract-ingestion queue (ingestion→extraction) and notification queue (for notification service).
+**Status:** ✅ COMPLETED - All 5 queues now created:
+1. `csa-poc-contract-discovery` (discovery→ingestion)
+2. `csa-poc-contract-ingestion` (ingestion→extraction)
+3. `csa-poc-extraction-tasks` (extraction→routing)
+4. `csa-poc-siren-load` (routing→siren-load)
+5. `csa-poc-notification` (notification service)
 
 ---
 
