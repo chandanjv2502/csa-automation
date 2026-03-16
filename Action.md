@@ -261,6 +261,20 @@ AWS_PROFILE=staging-server aws iam update-assume-role-policy --role-name csa-poc
 **Why:** Original trust policy restricted to `csa-*` ServiceAccounts (only csa-routing matched). Our pods are named `frontend-ui`, `contract-discovery`, `ai-extraction`, etc. Updated to allow ANY ServiceAccount in csa-poc namespace.
 **Status:** ✅ COMPLETED - Trust policy updated to allow `system:serviceaccount:csa-poc:*`
 
+### 28. Install AWS Load Balancer Controller (Manual - Cluster Infrastructure)
+```bash
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  -n kube-system \
+  --set clusterName=csa-poc-eks \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=aws-load-balancer-controller
+kubectl get deployment -n kube-system aws-load-balancer-controller
+```
+**Why:** Cluster-level infrastructure (not part of GitHub Actions). Required for Ingress → ALB creation. Uses IRSA ServiceAccount from step 7.
+**Status:** ✅ COMPLETED - Controller deployed with 2 replicas, both pods Running. Ready to create ALBs from Ingress resources.
+
 ---
 
 ## Deployment Summary
