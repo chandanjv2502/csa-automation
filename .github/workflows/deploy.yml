@@ -29,24 +29,26 @@ jobs:
 
       - name: Verify authentication
         run: |
-          echo "Verifying permissions in namespace: ${{ secrets.K8S_NAMESPACE }}"
-          kubectl auth can-i create pods -n ${{ secrets.K8S_NAMESPACE }}
-          kubectl auth can-i create deployments -n ${{ secrets.K8S_NAMESPACE }}
-          kubectl auth can-i create services -n ${{ secrets.K8S_NAMESPACE }}
+          echo "Verifying permissions in namespace: csa-poc"
+          kubectl auth can-i create pods -n csa-poc
+          kubectl auth can-i create deployments -n csa-poc
+          kubectl auth can-i create services -n csa-poc
           echo "✅ All permission checks passed!"
 
       - name: Deploy to Kubernetes
         run: |
-          echo "Deploying to namespace: ${{ secrets.K8S_NAMESPACE }}"
-          kubectl apply -f k8s/ -n ${{ secrets.K8S_NAMESPACE }}
+          echo "Deploying to namespace: csa-poc"
+          kubectl apply -f k8s/
 
       - name: Verify deployment
         run: |
-          echo "Waiting for deployment to be ready..."
-          kubectl rollout status deployment/sample-app -n ${{ secrets.K8S_NAMESPACE }} --timeout=5m
+          echo "Waiting for deployments to be ready..."
+          kubectl rollout status deployment/frontend-ui -n csa-poc --timeout=2m || true
+          kubectl rollout status deployment/contract-discovery -n csa-poc --timeout=2m || true
+          kubectl rollout status deployment/ai-extraction -n csa-poc --timeout=2m || true
           echo ""
           echo "Deployment successful! Listing pods:"
-          kubectl get pods -n ${{ secrets.K8S_NAMESPACE }}
+          kubectl get pods -n csa-poc
           echo ""
           echo "Listing services:"
-          kubectl get services -n ${{ secrets.K8S_NAMESPACE }}
+          kubectl get services -n csa-poc

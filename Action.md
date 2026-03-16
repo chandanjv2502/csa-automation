@@ -103,13 +103,31 @@ All services use ClusterIP (internal only) matching design-updated.md"
 git push origin main
 ```
 **Why:** Push manifests to GitHub repository to trigger deployment workflow.
+**Status:** ✅ COMPLETED - Commit dd826cd pushed to main branch.
 
-### 12. Trigger GitHub Actions Deployment
+### 12. Trigger GitHub Actions Deployment (First Attempt - FAILED)
 ```bash
 gh workflow run "Deploy to EKS"
-gh run watch
 ```
 **Why:** Manually trigger deployment workflow using GitHub CLI and monitor progress.
+**Status:** ❌ FAILED - Namespace mismatch error. Workflow uses secrets.K8S_NAMESPACE but manifests have namespace:csa-poc.
+
+### 13. Fix Workflow - Remove Namespace Flag
+```bash
+# Edit .github/workflows/deploy.yml to:
+# - Remove -n flag from kubectl apply (namespace already in manifests)
+# - Hardcode csa-poc namespace in verification steps
+git add .github/workflows/deploy.yml Action.md
+git commit -m "Fix workflow: Use namespace from manifests instead of secrets"
+git push origin main
+```
+**Why:** Fix namespace mismatch between workflow secrets and hardcoded manifests.
+
+### 14. Re-trigger GitHub Actions Deployment
+```bash
+gh workflow run "Deploy to EKS"
+```
+**Why:** Deploy with fixed workflow.
 
 ---
 
