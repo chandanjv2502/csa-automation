@@ -190,6 +190,68 @@ kubectl get svc -n csa-poc
 **Why:** Verify deployment workflow completes successfully without errors.
 **Status:** ✅ SUCCESS - All 9 pods running, all 9 services created, GitHub Actions workflow completed successfully.
 
+### 22. Check IAM Permissions for GitHub Actions User
+```bash
+AWS_PROFILE=staging-server aws iam list-attached-user-policies --user-name github-actions-csa-deploy
+AWS_PROFILE=staging-server aws iam list-user-policies --user-name github-actions-csa-deploy
+AWS_PROFILE=staging-server aws iam get-user-policy --user-name github-actions-csa-deploy --policy-name EKSDescribeAccess
+```
+**Why:** Verify what AWS service permissions the GitHub Actions IAM user has (EKS only vs broader access).
+**Finding:** User has MINIMAL permissions - only `eks:DescribeCluster` on csa-poc-eks cluster. No access to RDS, S3, SQS, Secrets Manager, ECR, or any other AWS services.
+
+### 23. Create IAM Role for IRSA (Service Account Permissions)
+```bash
+# Created /tmp/trust-policy.json with OIDC provider
+# Created /tmp/csa-service-permissions.json
+AWS_PROFILE=staging-server aws iam create-role --role-name csa-poc-service-role --assume-role-policy-document file:///tmp/trust-policy.json
+AWS_PROFILE=staging-server aws iam create-policy --policy-name CSAPoCServicePermissions --policy-document file:///tmp/csa-service-permissions.json
+AWS_PROFILE=staging-server aws iam attach-role-policy --role-name csa-poc-service-role --policy-arn arn:aws:iam::524997768738:policy/CSAPoCServicePermissions
+```
+**Why:** Create IAM role that CSA pods will assume via IRSA to access AWS services (S3, RDS, Secrets Manager, SQS, Textract).
+**Status:** ✅ COMPLETED - Role ARN: `arn:aws:iam::524997768738:role/csa-poc-service-role`
+
+**Permissions Granted:**
+- S3: GetObject, PutObject, DeleteObject, ListBucket on `nextera-csa-*-documents`
+- SQS: Send/Receive/Delete messages on `csa-poc-*` queues
+- Textract: AnalyzeDocument, DetectDocumentText
+- Secrets Manager: GetSecretValue on `csa-poc/*` secrets
+- SSM Parameter Store: GetParameter on `csa-poc/*` parameters
+- CloudWatch Logs: Create/write logs to `/aws/eks/csa-poc/*`
+- CloudWatch Metrics: PutMetricData to `CSA/Application` namespace
+
+**Trust Policy:** Allows any ServiceAccount matching `system:serviceaccount:csa-poc:csa-*` to assume this role.
+
+### 24. Create S3 Bucket for Document Storage
+```bash
+AWS_PROFILE=staging-server aws s3api create-bucket --bucket nextera-csa-poc-documents --region us-east-1
+AWS_PROFILE=staging-server aws s3api put-bucket-versioning --bucket nextera-csa-poc-documents --versioning-configuration Status=Enabled
+AWS_PROFILE=staging-server aws s3api put-bucket-encryption --bucket nextera-csa-poc-documents --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
+AWS_PROFILE=staging-server aws s3api put-public-access-block --bucket nextera-csa-poc-documents --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+```
+**Why:** Create S3 bucket for storing CSA contract documents (matches IAM policy pattern `nextera-csa-*-documents`).
+**Status:** ✅ COMPLETED - Bucket: `nextera-csa-poc-documents` (versioning enabled, encrypted, public access blocked)
+
+### 25. Create SQS Queues for Async Processing
+```bash
+AWS_PROFILE=staging-server aws sqs create-queue --queue-name csa-poc-contract-discovery --region us-east-1
+AWS_PROFILE=staging-server aws sqs create-queue --queue-name csa-poc-extraction-tasks --region us-east-1
+AWS_PROFILE=staging-server aws sqs create-queue --queue-name csa-poc-siren-load --region us-east-1
+```
+**Why:** Create SQS queues for async communication between services (matches IAM policy pattern `csa-poc-*`).
+**Status:** ✅ COMPLETED - Queues: `csa-poc-contract-discovery`, `csa-poc-extraction-tasks`, `csa-poc-siren-load`
+
+### 26. Create AWS Secrets Manager Secrets
+```bash
+AWS_PROFILE=staging-server aws secretsmanager create-secret --name csa-poc/dev/postgres --secret-string '{"username":"csa_admin","password":"PLACEHOLDER_CHANGE_ME","host":"TBD","port":5432}'
+AWS_PROFILE=staging-server aws secretsmanager create-secret --name csa-poc/dev/phoenix-api-key --secret-string '{"api_key":"PLACEHOLDER_PHOENIX_KEY","endpoint":"http://mock-phoenix-api.csa-poc.svc.cluster.local:8086"}'
+AWS_PROFILE=staging-server aws secretsmanager create-secret --name csa-poc/dev/siren-api-key --secret-string '{"api_key":"PLACEHOLDER_SIREN_KEY","endpoint":"http://mock-siren-api.csa-poc.svc.cluster.local:8087"}'
+```
+**Why:** Create placeholder secrets for database credentials and API keys (matches IAM policy pattern `csa-poc/*`).
+**Status:** ✅ COMPLETED - Secrets created:
+- `csa-poc/dev/postgres` (ARN: arn:aws:secretsmanager:us-east-1:524997768738:secret:csa-poc/dev/postgres-RLdYRg)
+- `csa-poc/dev/phoenix-api-key` (ARN: arn:aws:secretsmanager:us-east-1:524997768738:secret:csa-poc/dev/phoenix-api-key-EyU7Jw)
+- `csa-poc/dev/siren-api-key` (ARN: arn:aws:secretsmanager:us-east-1:524997768738:secret:csa-poc/dev/siren-api-key-sWce2s)
+
 ---
 
 ## Deployment Summary
