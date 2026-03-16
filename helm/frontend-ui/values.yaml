@@ -1,0 +1,111 @@
+# Default values for frontend-ui
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Namespace where the service will be deployed
+namespace: csa-poc
+
+# Deployment configuration
+replicaCount: 1
+
+image:
+  repository: nginx
+  tag: "1.25-alpine"
+  pullPolicy: IfNotPresent
+
+# Image pull secrets (if using private registry like Nexus)
+imagePullSecrets: []
+# - name: nexus-registry-secret
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Service Account
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations:
+    # eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/ROLE_NAME
+  # The name of the service account to use.
+  name: ""
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod security context
+podSecurityContext: {}
+  # fsGroup: 2000
+
+# Container security context
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 80
+  annotations: {}
+
+# Container port
+containerPort: 80
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Liveness probe
+livenessProbe:
+  httpGet:
+    path: /
+    port: 80
+  initialDelaySeconds: 10
+  periodSeconds: 10
+
+# Readiness probe
+readinessProbe:
+  httpGet:
+    path: /
+    port: 80
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Environment variables
+env: []
+# - name: API_BASE_URL
+#   value: "http://backend-api:8080"
+
+# Environment variables from ConfigMap
+envFrom: []
+# - configMapRef:
+#     name: frontend-config
+
+# Environment variables from Secret
+envFromSecret: []
+# - secretRef:
+#     name: frontend-secrets
+
+# Labels
+labels:
+  app: frontend-ui
+  component: frontend

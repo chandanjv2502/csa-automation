@@ -27,6 +27,11 @@ jobs:
             --name ${{ secrets.EKS_CLUSTER_NAME }} \
             --region ${{ secrets.AWS_REGION }}
 
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.14.0'
+
       - name: Verify authentication
         run: |
           echo "Verifying deployment permissions in csa-poc namespace..."
@@ -35,10 +40,23 @@ jobs:
           kubectl auth can-i create ingresses -n csa-poc || exit 1
           echo "✅ Permissions verified!"
 
-      - name: Deploy to Kubernetes
+      - name: Deploy services using Helm
         run: |
-          echo "Deploying to namespace: csa-poc"
-          kubectl apply -f k8s/
+          echo "Deploying CSA services to namespace: csa-poc"
+
+          # Deploy frontend-ui
+          helm upgrade --install frontend-ui ./helm/frontend-ui \
+            --namespace csa-poc \
+            --create-namespace \
+            --wait \
+            --timeout 5m
+
+          # Note: Add other services here as their Helm charts are created
+          # helm upgrade --install contract-discovery ./helm/contract-discovery --namespace csa-poc --wait
+          # helm upgrade --install contract-ingestion ./helm/contract-ingestion --namespace csa-poc --wait
+          # etc.
+
+          echo "✅ Helm deployments complete!"
 
       - name: Verify deployment
         run: |
