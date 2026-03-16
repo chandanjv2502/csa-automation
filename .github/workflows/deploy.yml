@@ -38,6 +38,8 @@ jobs:
           kubectl auth can-i create deployments -n csa-poc || exit 1
           kubectl auth can-i create services -n csa-poc || exit 1
           kubectl auth can-i create ingresses -n csa-poc || exit 1
+          kubectl auth can-i create secrets -n csa-poc || exit 1
+          kubectl auth can-i create serviceaccounts -n csa-poc || exit 1
           echo "✅ Permissions verified!"
 
       - name: Deploy services using Helm
