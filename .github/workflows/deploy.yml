@@ -30,9 +30,8 @@ jobs:
       - name: Verify authentication
         run: |
           echo "Verifying deployment permissions in csa-poc namespace..."
-          kubectl auth can-i create deployments -n csa-poc
-          kubectl auth can-i create services -n csa-poc
-          kubectl get namespace csa-poc
+          kubectl auth can-i create deployments -n csa-poc || exit 1
+          kubectl auth can-i create services -n csa-poc || exit 1
           echo "✅ Permissions verified!"
 
       - name: Deploy to Kubernetes
