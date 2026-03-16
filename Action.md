@@ -336,3 +336,55 @@ AWS_PROFILE=staging-server aws sqs create-queue --queue-name csa-poc-notificatio
 - poc-csa-automation/docs/EXISTING-INFRASTRUCTURE.md - Current state analysis
 - poc-csa-automation/docs/REQUIREMENTS-VALIDATION.md - Validation checklist
 - poc-csa-automation/docs/GAPS-AND-FINDINGS.md - Gap tracking template
+
+---
+
+## Step 30: Create AWS Cognito User Pool for ALB Authentication
+
+**Date:** 2026-03-16
+
+**Commands:**
+```bash
+# Create User Pool
+AWS_PROFILE=staging-server aws cognito-idp create-user-pool \
+  --pool-name csa-poc-user-pool \
+  --policies "PasswordPolicy={MinimumLength=8,RequireUppercase=true,RequireLowercase=true,RequireNumbers=true,RequireSymbols=false}" \
+  --auto-verified-attributes email \
+  --username-attributes email \
+  --region us-east-1
+
+# Create App Client for ALB integration
+AWS_PROFILE=staging-server aws cognito-idp create-user-pool-client \
+  --user-pool-id us-east-1_gccsX6sWm \
+  --client-name csa-poc-alb-client \
+  --generate-secret \
+  --allowed-o-auth-flows code \
+  --allowed-o-auth-scopes openid \
+  --allowed-o-auth-flows-user-pool-client \
+  --callback-urls "https://example.com/oauth2/idpresponse" \
+  --supported-identity-providers COGNITO \
+  --region us-east-1
+
+# Create Cognito Domain
+AWS_PROFILE=staging-server aws cognito-idp create-user-pool-domain \
+  --domain csa-poc-staging-20260316 \
+  --user-pool-id us-east-1_gccsX6sWm \
+  --region us-east-1
+```
+
+**Status:** ✅ COMPLETED
+
+**Cognito Details (Required for Ingress annotations):**
+- **User Pool ARN:** `arn:aws:cognito-idp:us-east-1:524997768738:userpool/us-east-1_gccsX6sWm`
+- **User Pool ID:** `us-east-1_gccsX6sWm`
+- **User Pool Client ID:** `4qumod2ls799e6vso5kgvk3dci`
+- **User Pool Client Secret:** `c9ubdpsvlsdb1arhif16holab7dval24hql35s6aj2h7i1e9jaa`
+- **User Pool Domain:** `csa-poc-staging-20260316.auth.us-east-1.amazoncognito.com`
+
+**Load Balancer Controller Cognito Permission:** ✅ Verified
+- IAM Role: `eksctl-csa-poc-eks-addon-iamserviceaccount-ku-Role1-K1crPgoTxOzF`
+- Policy includes: `cognito-idp:DescribeUserPoolClient`
+
+**Note:** Callback URL currently set to placeholder. Will be updated to actual ALB DNS after Ingress deployment.
+
+---

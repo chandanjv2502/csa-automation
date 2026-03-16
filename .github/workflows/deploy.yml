@@ -32,6 +32,7 @@ jobs:
           echo "Verifying deployment permissions in csa-poc namespace..."
           kubectl auth can-i create deployments -n csa-poc || exit 1
           kubectl auth can-i create services -n csa-poc || exit 1
+          kubectl auth can-i create ingresses -n csa-poc || exit 1
           echo "✅ Permissions verified!"
 
       - name: Deploy to Kubernetes
@@ -51,3 +52,10 @@ jobs:
           echo ""
           echo "Listing services:"
           kubectl get services -n csa-poc
+          echo ""
+          echo "Listing Ingress resources:"
+          kubectl get ingress -n csa-poc
+          echo ""
+          echo "Waiting for ALB to be provisioned (this may take 2-3 minutes)..."
+          sleep 30
+          kubectl get ingress csa-frontend-ingress -n csa-poc -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' || echo "ALB not ready yet"
