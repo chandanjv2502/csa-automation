@@ -252,6 +252,15 @@ AWS_PROFILE=staging-server aws secretsmanager create-secret --name csa-poc/dev/s
 - `csa-poc/dev/phoenix-api-key` (ARN: arn:aws:secretsmanager:us-east-1:524997768738:secret:csa-poc/dev/phoenix-api-key-EyU7Jw)
 - `csa-poc/dev/siren-api-key` (ARN: arn:aws:secretsmanager:us-east-1:524997768738:secret:csa-poc/dev/siren-api-key-sWce2s)
 
+### 27. Fix IAM Role Trust Policy - Allow All ServiceAccounts in csa-poc Namespace
+```bash
+# Update trust policy to allow any ServiceAccount in csa-poc namespace (not just csa-*)
+# Changed pattern from "system:serviceaccount:csa-poc:csa-*" to "system:serviceaccount:csa-poc:*"
+AWS_PROFILE=staging-server aws iam update-assume-role-policy --role-name csa-poc-service-role --policy-document file:///tmp/trust-policy-updated.json
+```
+**Why:** Original trust policy restricted to `csa-*` ServiceAccounts (only csa-routing matched). Our pods are named `frontend-ui`, `contract-discovery`, `ai-extraction`, etc. Updated to allow ANY ServiceAccount in csa-poc namespace.
+**Status:** ✅ COMPLETED - Trust policy updated to allow `system:serviceaccount:csa-poc:*`
+
 ---
 
 ## Deployment Summary
