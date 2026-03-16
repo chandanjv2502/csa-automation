@@ -55,21 +55,31 @@ Example from any app would be helpful - even if it's redacted or simplified. See
 
 6. Kubernetes Permissions for GitHub Actions can deploy to provided namespace.
 
-   **Required Kubernetes RBAC permissions for GitHub Actions deployer:**
-   - API Group: `""` (core) → Resources: `pods, services` → Verbs: `get, list, watch, create, update, patch, delete`
+   **🚨 CRITICAL: Required Kubernetes RBAC permissions for GitHub Actions deployer**
+
+   These permissions were validated during POC testing and are **minimum required** for Helm-based deployments:
+
+   - API Group: `""` (core) → Resources: `pods, services, secrets, serviceaccounts` → Verbs: `get, list, watch, create, update, patch, delete`
    - API Group: `apps` → Resources: `deployments, replicasets` → Verbs: `get, list, watch, create, update, patch, delete`
    - API Group: `networking.k8s.io` → Resources: `ingresses` → Verbs: `get, list, watch, create, update, patch, delete`
 
-   **Example Kubernetes Role:**
+   **Why These Permissions Are Required:**
+   - `secrets`: **CRITICAL** - Helm stores release metadata as Kubernetes Secrets. Without this permission, deployments will fail with "secrets is forbidden" error
+   - `serviceaccounts`: Required for creating pod ServiceAccounts with IRSA (IAM Roles for Service Accounts) annotations
+   - `pods/services`: Standard resources for application deployments
+   - `deployments/replicasets`: Required for managing application workloads
+   - `ingresses`: Required for ALB/load balancer configuration
+
+   **Example Kubernetes Role (validated in POC):**
    ```yaml
    apiVersion: rbac.authorization.k8s.io/v1
    kind: Role
    metadata:
      name: csa-deployer
-     namespace: csa-poc
+     namespace: csa-poc  # Update to NextEra's namespace
    rules:
    - apiGroups: [""]
-     resources: ["services", "pods"]
+     resources: ["services", "pods", "secrets", "serviceaccounts"]
      verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
    - apiGroups: ["apps"]
      resources: ["deployments", "replicasets"]
@@ -77,7 +87,49 @@ Example from any app would be helpful - even if it's redacted or simplified. See
    - apiGroups: ["networking.k8s.io"]
      resources: ["ingresses"]
      verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+   ---
+   apiVersion: rbac.authorization.k8s.io/v1
+   kind: RoleBinding
+   metadata:
+     name: csa-deployer-binding
+     namespace: csa-poc  # Update to NextEra's namespace
+   roleRef:
+     apiGroup: rbac.authorization.k8s.io
+     kind: Role
+     name: csa-deployer
+   subjects:
+   - apiGroup: rbac.authorization.k8s.io
+     kind: Group
+     name: csa-deployers  # This group name must match aws-auth mapping
    ```
+
+   **IAM to Kubernetes Group Mapping (aws-auth ConfigMap):**
+
+   NextEra needs to add this mapping to the `aws-auth` ConfigMap in `kube-system` namespace:
+
+   ```yaml
+   apiVersion: v1
+   kind: ConfigMap
+   metadata:
+     name: aws-auth
+     namespace: kube-system
+   data:
+     mapUsers: |
+       - userarn: arn:aws:iam::<NEXTERA-ACCOUNT-ID>:user/<CICD-IAM-USER>
+         username: <CICD-IAM-USER>
+         groups:
+         - csa-deployers  # This group name must match RoleBinding subject
+   ```
+
+   **Verification Commands:**
+   ```bash
+   # Verify permissions after setup
+   kubectl auth can-i create secrets -n csa-poc --as=<CICD-IAM-USER>
+   kubectl auth can-i create serviceaccounts -n csa-poc --as=<CICD-IAM-USER>
+   kubectl auth can-i create deployments -n csa-poc --as=<CICD-IAM-USER>
+   ```
+
+   **Reference:** Complete RBAC configuration with detailed documentation is available in `k8s/00-rbac.yaml`
 
 7. Confirm kubectl,aws cli,Helm Installation in GitHub Actions Runner
 
