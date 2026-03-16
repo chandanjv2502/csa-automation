@@ -29,10 +29,11 @@ jobs:
 
       - name: Verify authentication
         run: |
-          echo "Checking cluster connectivity..."
-          kubectl cluster-info
-          kubectl get nodes
-          echo "✅ Cluster connected successfully!"
+          echo "Verifying deployment permissions in csa-poc namespace..."
+          kubectl auth can-i create deployments -n csa-poc
+          kubectl auth can-i create services -n csa-poc
+          kubectl get namespace csa-poc
+          echo "✅ Permissions verified!"
 
       - name: Deploy to Kubernetes
         run: |

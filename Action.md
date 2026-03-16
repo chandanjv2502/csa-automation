@@ -123,11 +123,52 @@ git push origin main
 ```
 **Why:** Fix namespace mismatch between workflow secrets and hardcoded manifests.
 
-### 14. Re-trigger GitHub Actions Deployment
+### 14. Re-trigger GitHub Actions Deployment (Second Attempt - FAILED)
 ```bash
 gh workflow run "Deploy to EKS"
 ```
 **Why:** Deploy with fixed workflow.
+**Status:** ❌ FAILED - User "github-actions-csa-deploy" lacks RBAC permissions to list services in kube-system.
+
+### 15. Investigate Workflow Failure
+```bash
+gh run view 23144773834 --log
+```
+**Why:** Check workflow logs to identify root cause of deployment failure.
+**Finding:** IAM user can authenticate to cluster, but Kubernetes RBAC denies listing services in kube-system namespace.
+
+### 16. Check Existing RBAC for GitHub Actions User
+```bash
+kubectl get clusterrolebinding | grep github-actions
+kubectl get rolebinding -n csa-poc | grep github-actions
+kubectl get configmap aws-auth -n kube-system -o yaml
+```
+**Why:** Verify what Kubernetes permissions the github-actions-csa-deploy user currently has.
+**Finding:** User is mapped to group "csa-deployers" but no Role/RoleBinding exists for this group.
+
+### 17. Create RBAC Role for Deployers in csa-poc Namespace
+```bash
+kubectl create role csa-deployer --verb=get,list,watch,create,update,patch,delete --resource=deployments,services,pods,replicasets -n csa-poc
+kubectl create rolebinding csa-deployer-binding --role=csa-deployer --group=csa-deployers -n csa-poc
+kubectl auth can-i create deployments -n csa-poc --as=github-actions-csa-deploy --as-group=csa-deployers
+```
+**Why:** Grant github-actions-csa-deploy user permissions to manage deployments/services/pods in csa-poc namespace.
+**Status:** ✅ COMPLETED - All permissions verified (create deployments: yes, create services: yes, list pods: yes).
+
+### 18. Update Workflow to Check csa-poc Namespace Permissions
+```bash
+# Edit .github/workflows/deploy.yml to verify permissions in csa-poc instead of kube-system
+git add .github/workflows/deploy.yml Action.md
+git commit -m "Fix workflow: Check csa-poc namespace permissions instead of kube-system"
+git push origin main
+```
+**Why:** Previous workflow checked kube-system permissions which GitHub Actions user doesn't need.
+
+### 19. Trigger GitHub Actions Deployment (Third Attempt)
+```bash
+gh workflow run "Deploy to EKS"
+```
+**Why:** Deploy with fixed RBAC and updated workflow verification.
 
 ---
 
