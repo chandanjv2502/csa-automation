@@ -63,7 +63,6 @@ jobs:
             echo "Deploying $service..."
             helm upgrade --install $service ./helm/$service \
               --namespace csa-poc \
-              --create-namespace \
               --wait \
               --timeout 5m
             echo "✅ $service deployed successfully"
