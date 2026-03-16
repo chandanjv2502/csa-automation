@@ -1,6 +1,45 @@
-# RBAC configuration for GitHub Actions CI/CD user
-# This allows the github-actions-csa-deploy IAM user (mapped to csa-deployers group)
-# to deploy and manage resources in the csa-poc namespace
+# =============================================================================
+# RBAC Configuration for CI/CD Automated Deployments
+# =============================================================================
+#
+# PURPOSE:
+#   Defines Kubernetes Role-Based Access Control (RBAC) permissions required
+#   for automated deployments using Helm. This configuration grants minimum
+#   necessary permissions following the principle of least privilege.
+#
+# BACKGROUND:
+#   This configuration was validated during POC testing and resolves the
+#   "secrets is forbidden" error that occurs when Helm attempts to deploy
+#   without proper permissions. Helm requires 'secrets' access because it
+#   stores release metadata as Kubernetes Secrets.
+#
+# FOR NEXTERA DEPLOYMENT:
+#   1. Update the namespace to match your production namespace
+#   2. Update group name to match your IAM-to-Kubernetes group mapping
+#   3. Apply this file: kubectl apply -f 00-rbac.yaml
+#   4. Map your IAM user/role to the Kubernetes group in aws-auth ConfigMap
+#
+# EXAMPLE IAM TO KUBERNETES MAPPING (aws-auth ConfigMap):
+#   mapUsers: |
+#     - userarn: arn:aws:iam::YOUR-ACCOUNT-ID:user/YOUR-CICD-USER
+#       username: YOUR-CICD-USER
+#       groups:
+#       - csa-deployers    # This group name must match the RoleBinding below
+#
+# PERMISSIONS EXPLAINED:
+#   - secrets: Required for Helm to store release metadata
+#   - serviceaccounts: Required for creating pod service accounts with IRSA
+#   - deployments/replicasets: Required for managing application workloads
+#   - services: Required for creating ClusterIP/LoadBalancer services
+#   - pods: Required for debugging and verifying deployments
+#   - ingresses: Required for ALB/load balancer configuration
+#
+# VERIFICATION:
+#   After applying, verify permissions with:
+#   kubectl auth can-i create secrets -n <namespace> --as=<username>
+#   kubectl auth can-i create serviceaccounts -n <namespace> --as=<username>
+#
+# =============================================================================
 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
