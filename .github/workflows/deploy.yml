@@ -85,14 +85,13 @@ jobs:
           for service in "${services[@]}"; do
             echo "Deploying $service..."
             helm upgrade --install $service ./helm/$service \
-              --namespace csa-poc \
-              --wait \
-              --timeout 5m
-            echo "✅ $service deployed successfully"
+              --namespace csa-poc
+            echo "✅ $service Helm release updated"
           done
 
           echo ""
-          echo "✅ Helm deployments complete!"
+          echo "✅ All Helm releases updated! Waiting for pods to be ready..."
+          sleep 10
 
       - name: Verify deployment
         run: |
