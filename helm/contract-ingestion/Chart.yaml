@@ -1,0 +1,15 @@
+apiVersion: v2
+name: contract-ingestion
+description: Contract Ingestion Service - Retrieves and organizes documents from external sources
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - csa
+  - credit-support-annex
+  - contract-processing
+  - nextera
+  - automation
+maintainers:
+  - name: Dsider Team
+    email: support@dsider.com

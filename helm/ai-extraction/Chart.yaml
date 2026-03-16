@@ -1,0 +1,15 @@
+apiVersion: v2
+name: ai-extraction
+description: AI Extraction Service - Extracts data from documents using OCR and NLP
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - csa
+  - credit-support-annex
+  - contract-processing
+  - nextera
+  - automation
+maintainers:
+  - name: Dsider Team
+    email: support@dsider.com

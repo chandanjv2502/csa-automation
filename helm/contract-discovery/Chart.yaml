@@ -1,0 +1,15 @@
+apiVersion: v2
+name: contract-discovery
+description: Contract Discovery Service - Monitors email inbox and creates workflow cases
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - csa
+  - credit-support-annex
+  - contract-processing
+  - nextera
+  - automation
+maintainers:
+  - name: Dsider Team
+    email: support@dsider.com

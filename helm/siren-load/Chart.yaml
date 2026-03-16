@@ -1,0 +1,15 @@
+apiVersion: v2
+name: siren-load
+description: SIREN Load Service - Loads processed data into SIREN system
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - csa
+  - credit-support-annex
+  - contract-processing
+  - nextera
+  - automation
+maintainers:
+  - name: Dsider Team
+    email: support@dsider.com

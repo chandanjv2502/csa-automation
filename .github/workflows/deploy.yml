@@ -46,32 +46,63 @@ jobs:
         run: |
           echo "Deploying CSA services to namespace: csa-poc"
 
-          # Deploy frontend-ui
-          helm upgrade --install frontend-ui ./helm/frontend-ui \
-            --namespace csa-poc \
-            --create-namespace \
-            --wait \
-            --timeout 5m
+          # Deploy all 9 services
+          services=(
+            "frontend-ui"
+            "contract-discovery"
+            "contract-ingestion"
+            "ai-extraction"
+            "csa-routing"
+            "siren-load"
+            "notification-service"
+            "mock-phoenix-api"
+            "mock-siren-api"
+          )
 
-          # Note: Add other services here as their Helm charts are created
-          # helm upgrade --install contract-discovery ./helm/contract-discovery --namespace csa-poc --wait
-          # helm upgrade --install contract-ingestion ./helm/contract-ingestion --namespace csa-poc --wait
-          # etc.
+          for service in "${services[@]}"; do
+            echo "Deploying $service..."
+            helm upgrade --install $service ./helm/$service \
+              --namespace csa-poc \
+              --create-namespace \
+              --wait \
+              --timeout 5m
+            echo "✅ $service deployed successfully"
+          done
 
-          echo "✅ Helm deployments complete!"
+          echo ""
+          echo "✅ All Helm deployments complete!"
 
       - name: Verify deployment
         run: |
           echo "Waiting for deployments to be ready..."
-          kubectl rollout status deployment/frontend-ui -n csa-poc --timeout=2m || true
-          kubectl rollout status deployment/contract-discovery -n csa-poc --timeout=2m || true
-          kubectl rollout status deployment/ai-extraction -n csa-poc --timeout=2m || true
+
+          # Check rollout status for all 9 services
+          services=(
+            "frontend-ui"
+            "contract-discovery"
+            "contract-ingestion"
+            "ai-extraction"
+            "csa-routing"
+            "siren-load"
+            "notification-service"
+            "mock-phoenix-api"
+            "mock-siren-api"
+          )
+
+          for service in "${services[@]}"; do
+            echo "Checking rollout status for $service..."
+            kubectl rollout status deployment/$service -n csa-poc --timeout=2m || true
+          done
+
           echo ""
-          echo "Deployment successful! Listing pods:"
-          kubectl get pods -n csa-poc
+          echo "Deployment successful! Listing all pods:"
+          kubectl get pods -n csa-poc -o wide
           echo ""
-          echo "Listing services:"
+          echo "Listing all services:"
           kubectl get services -n csa-poc
+          echo ""
+          echo "Listing Helm releases:"
+          helm list -n csa-poc
           echo ""
           echo "Listing Ingress resources:"
           kubectl get ingress -n csa-poc
