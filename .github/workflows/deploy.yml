@@ -5,6 +5,22 @@ on:
     branches:
       - main
   workflow_dispatch:  # Allows manual trigger from GitHub UI
+    inputs:
+      service:
+        description: 'Service to deploy (leave empty to deploy all)'
+        required: false
+        type: choice
+        options:
+          - ''
+          - frontend-ui
+          - contract-discovery
+          - contract-ingestion
+          - ai-extraction
+          - csa-routing
+          - siren-load
+          - notification-service
+          - mock-phoenix-api
+          - mock-siren-api
 
 jobs:
   deploy:
@@ -46,18 +62,25 @@ jobs:
         run: |
           echo "Deploying CSA services to namespace: csa-poc"
 
-          # Deploy all 9 services
-          services=(
-            "frontend-ui"
-            "contract-discovery"
-            "contract-ingestion"
-            "ai-extraction"
-            "csa-routing"
-            "siren-load"
-            "notification-service"
-            "mock-phoenix-api"
-            "mock-siren-api"
-          )
+          # Check if specific service was selected via workflow_dispatch
+          if [ -n "${{ github.event.inputs.service }}" ]; then
+            echo "Manual deployment triggered for service: ${{ github.event.inputs.service }}"
+            services=("${{ github.event.inputs.service }}")
+          else
+            echo "Deploying all services (triggered by push or manual 'all')"
+            # Deploy all 9 services
+            services=(
+              "frontend-ui"
+              "contract-discovery"
+              "contract-ingestion"
+              "ai-extraction"
+              "csa-routing"
+              "siren-load"
+              "notification-service"
+              "mock-phoenix-api"
+              "mock-siren-api"
+            )
+          fi
 
           for service in "${services[@]}"; do
             echo "Deploying $service..."
@@ -69,24 +92,29 @@ jobs:
           done
 
           echo ""
-          echo "✅ All Helm deployments complete!"
+          echo "✅ Helm deployments complete!"
 
       - name: Verify deployment
         run: |
           echo "Waiting for deployments to be ready..."
 
-          # Check rollout status for all 9 services
-          services=(
-            "frontend-ui"
-            "contract-discovery"
-            "contract-ingestion"
-            "ai-extraction"
-            "csa-routing"
-            "siren-load"
-            "notification-service"
-            "mock-phoenix-api"
-            "mock-siren-api"
-          )
+          # Check if specific service was selected
+          if [ -n "${{ github.event.inputs.service }}" ]; then
+            services=("${{ github.event.inputs.service }}")
+          else
+            # Check rollout status for all 9 services
+            services=(
+              "frontend-ui"
+              "contract-discovery"
+              "contract-ingestion"
+              "ai-extraction"
+              "csa-routing"
+              "siren-load"
+              "notification-service"
+              "mock-phoenix-api"
+              "mock-siren-api"
+            )
+          fi
 
           for service in "${services[@]}"; do
             echo "Checking rollout status for $service..."
