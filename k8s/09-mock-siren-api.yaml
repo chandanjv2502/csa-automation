@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-siren-api
+  namespace: csa-poc
+  labels:
+    app: mock-siren-api
+    component: mock
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mock-siren-api
+  template:
+    metadata:
+      labels:
+        app: mock-siren-api
+        component: mock
+    spec:
+      containers:
+      - name: mock-siren-api
+        image: python:3.11-slim
+        command: ["python", "-m", "http.server", "8087"]
+        ports:
+        - containerPort: 8087
+          name: http
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-siren-api
+  namespace: csa-poc
+  labels:
+    app: mock-siren-api
+spec:
+  type: ClusterIP
+  selector:
+    app: mock-siren-api
+  ports:
+  - port: 8087
+    targetPort: 8087
+    protocol: TCP
+    name: http

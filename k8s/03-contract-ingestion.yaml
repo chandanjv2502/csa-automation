@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contract-ingestion
+  namespace: csa-poc
+  labels:
+    app: contract-ingestion
+    component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: contract-ingestion
+  template:
+    metadata:
+      labels:
+        app: contract-ingestion
+        component: backend
+    spec:
+      containers:
+      - name: contract-ingestion
+        image: python:3.11-slim
+        command: ["python", "-m", "http.server", "8081"]
+        ports:
+        - containerPort: 8081
+          name: http
+        resources:
+          requests:
+            cpu: 300m
+            memory: 512Mi
+          limits:
+            cpu: 400m
+            memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: contract-ingestion
+  namespace: csa-poc
+  labels:
+    app: contract-ingestion
+spec:
+  type: ClusterIP
+  selector:
+    app: contract-ingestion
+  ports:
+  - port: 8081
+    targetPort: 8081
+    protocol: TCP
+    name: http

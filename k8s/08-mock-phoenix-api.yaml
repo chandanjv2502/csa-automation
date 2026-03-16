@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-phoenix-api
+  namespace: csa-poc
+  labels:
+    app: mock-phoenix-api
+    component: mock
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mock-phoenix-api
+  template:
+    metadata:
+      labels:
+        app: mock-phoenix-api
+        component: mock
+    spec:
+      containers:
+      - name: mock-phoenix-api
+        image: python:3.11-slim
+        command: ["python", "-m", "http.server", "8086"]
+        ports:
+        - containerPort: 8086
+          name: http
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-phoenix-api
+  namespace: csa-poc
+  labels:
+    app: mock-phoenix-api
+spec:
+  type: ClusterIP
+  selector:
+    app: mock-phoenix-api
+  ports:
+  - port: 8086
+    targetPort: 8086
+    protocol: TCP
+    name: http

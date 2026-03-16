@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contract-discovery
+  namespace: csa-poc
+  labels:
+    app: contract-discovery
+    component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: contract-discovery
+  template:
+    metadata:
+      labels:
+        app: contract-discovery
+        component: backend
+    spec:
+      containers:
+      - name: contract-discovery
+        image: python:3.11-slim
+        command: ["python", "-m", "http.server", "8080"]
+        ports:
+        - containerPort: 8080
+          name: http
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 300m
+            memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: contract-discovery
+  namespace: csa-poc
+  labels:
+    app: contract-discovery
+spec:
+  type: ClusterIP
+  selector:
+    app: contract-discovery
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http

@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: csa-routing
+  namespace: csa-poc
+  labels:
+    app: csa-routing
+    component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: csa-routing
+  template:
+    metadata:
+      labels:
+        app: csa-routing
+        component: backend
+    spec:
+      containers:
+      - name: csa-routing
+        image: python:3.11-slim
+        command: ["python", "-m", "http.server", "8083"]
+        ports:
+        - containerPort: 8083
+          name: http
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 300m
+            memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: csa-routing
+  namespace: csa-poc
+  labels:
+    app: csa-routing
+spec:
+  type: ClusterIP
+  selector:
+    app: csa-routing
+  ports:
+  - port: 8083
+    targetPort: 8083
+    protocol: TCP
+    name: http
