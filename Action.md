@@ -164,11 +164,51 @@ git push origin main
 ```
 **Why:** Previous workflow checked kube-system permissions which GitHub Actions user doesn't need.
 
-### 19. Trigger GitHub Actions Deployment (Third Attempt)
+### 19. Trigger GitHub Actions Deployment (Third & Fourth Attempts)
 ```bash
 gh workflow run "Deploy to EKS"
 ```
 **Why:** Deploy with fixed RBAC and updated workflow verification.
+**Status:** ✅ PARTIALLY SUCCESSFUL - All 9 CSA pods deployed successfully, but workflow failed due to old sample-app files in k8s/ directory targeting default namespace (which user lacks permissions for).
+
+### 20. Remove Old Sample App Files
+```bash
+rm k8s/deployment.yaml k8s/service.yaml
+git add k8s/
+git commit -m "Remove old sample-app files targeting default namespace"
+git push origin main
+```
+**Why:** Old files from previous testing cause deployment failure. GitHub Actions user only has permissions in csa-poc namespace.
+**Status:** ✅ COMPLETED - Commit 8d8a85b pushed to main branch.
+
+### 21. Final GitHub Actions Deployment
+```bash
+gh workflow run "Deploy to EKS"
+kubectl get pods -n csa-poc
+kubectl get svc -n csa-poc
+```
+**Why:** Verify deployment workflow completes successfully without errors.
+**Status:** ✅ SUCCESS - All 9 pods running, all 9 services created, GitHub Actions workflow completed successfully.
+
+---
+
+## Deployment Summary
+
+**Successfully Deployed 9 Pods:**
+1. frontend-ui (nginx:1.25-alpine) - Port 80
+2. contract-discovery (python:3.11-slim) - Port 8080
+3. contract-ingestion (python:3.11-slim) - Port 8081
+4. ai-extraction (python:3.11-slim) - Port 8082
+5. csa-routing (python:3.11-slim) - Port 8083
+6. siren-load (python:3.11-slim) - Port 8084
+7. notification-service (python:3.11-slim) - Port 8085
+8. mock-phoenix-api (python:3.11-slim) - Port 8086
+9. mock-siren-api (python:3.11-slim) - Port 8087
+
+**All pods status:** READY 1/1, STATUS Running
+**All services type:** ClusterIP (internal only)
+**Namespace:** csa-poc
+**Deployment method:** GitHub Actions via kubectl apply
 
 ---
 
