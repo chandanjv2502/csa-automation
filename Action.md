@@ -388,3 +388,185 @@ AWS_PROFILE=staging-server aws cognito-idp create-user-pool-domain \
 **Note:** Callback URL currently set to placeholder. Will be updated to actual ALB DNS after Ingress deployment.
 
 ---
+
+## Step 31: Deploy Ingress via GitHub Actions with ALB and Cognito
+
+**Date:** 2026-03-16
+
+**Actions Taken:**
+
+1. **Created Ingress Resource:** `k8s/10-ingress.yaml`
+   - ALB with internet-facing scheme
+   - Cognito authentication integrated
+   - HTTP port 80 (HTTPS requires SSL certificate)
+
+2. **Updated GitHub Actions Workflow:** `.github/workflows/deploy.yml`
+   - Added Ingress permission verification
+   - Added step to display ALB DNS after deployment
+
+3. **Fixed Kubernetes RBAC - Issue #1:**
+
+**Problem:**
+- GitHub Actions deployment failed when trying to create Ingress resources
+- The `csa-deployer` Kubernetes Role only had permissions for Deployments and Services
+- Missing permissions for `networking.k8s.io/ingresses` resource
+
+**Root Cause:**
+- Kubernetes RBAC operates on API group + resource level
+- Ingresses are in the `networking.k8s.io` API group (not core `""` group like Pods/Services)
+- The role created in Step 20 didn't anticipate Ingress deployment needs
+
+**Solution Applied:**
+```bash
+kubectl patch role csa-deployer -n csa-poc --type=json -p='[{"op": "add", "path": "/rules/-", "value": {"apiGroups": ["networking.k8s.io"], "resources": ["ingresses"], "verbs": ["get", "list", "watch", "create", "update", "patch", "delete"]}}]'
+```
+
+**Impact:** GitHub Actions can now deploy Ingress resources
+
+**Requirements.md Impact:** ⚠️ **SHOULD BE ADDED** - NextEra needs to ensure deployer IAM user/role has Ingress RBAC permissions
+
+---
+
+4. **Fixed Subnet Tagging Issue - Issue #2:**
+
+**Problem:**
+- Ingress created but ALB never provisioned
+- Load Balancer Controller logs showed: `Failed build model due to couldn't auto-discover subnets: unable to resolve at least one subnet. Evaluated 2 subnets: 2 are tagged for other clusters`
+- Ingress remained stuck with no ADDRESS for 4+ minutes
+
+**Root Cause Analysis:**
+```bash
+# Checked subnet tags - Found mismatch!
+AWS_PROFILE=staging-server aws ec2 describe-subnets --filters "Name=vpc-id,Values=vpc-012a60d830a2d3cca"
+
+# Existing tags on public subnets:
+kubernetes.io/cluster/nextera-csa-poc-eks=shared  ❌ WRONG CLUSTER NAME
+
+# But actual EKS cluster name:
+aws eks describe-cluster --name csa-poc-eks  ✅ CORRECT NAME
+```
+
+**Why This Matters:**
+- AWS Load Balancer Controller uses Kubernetes subnet tags for auto-discovery
+- For internet-facing ALBs, it looks for subnets tagged with:
+  - `kubernetes.io/role/elb=1` (for public subnets)
+  - `kubernetes.io/cluster/<CLUSTER_NAME>=shared` or `owned`
+- Without matching cluster name tag, controller cannot find eligible subnets
+
+**Solution Applied:**
+```bash
+# Added correct cluster tag to public subnets (subnet-0d5df5462d8dd2dca, subnet-090c9011b660e5ed5)
+AWS_PROFILE=staging-server aws ec2 create-tags \
+  --resources subnet-0d5df5462d8dd2dca subnet-090c9011b660e5ed5 \
+  --tags Key=kubernetes.io/cluster/csa-poc-eks,Value=shared \
+  --region us-east-1
+```
+
+**Verification:**
+- Both public subnets (us-east-1a, us-east-1b) now have correct tags
+- Private subnets tagged with `kubernetes.io/role/internal-elb=1` for internal ALBs
+
+**Impact:** Load Balancer Controller can now discover subnets and create ALB
+
+**Requirements.md Impact:** 🚨 **CRITICAL - MUST BE ADDED** - NextEra MUST tag subnets correctly before deploying Ingress
+
+---
+
+5. **Restarted Load Balancer Controller:**
+
+**Why Needed:**
+- Load Balancer Controller caches subnet information on startup
+- After adding new subnet tags, controller needed restart to refresh cache
+
+**Command:**
+```bash
+kubectl rollout restart deployment aws-load-balancer-controller -n kube-system
+```
+
+**Result:** ALB provisioned within 30 seconds of controller restart
+
+---
+
+## Step 32: Updated Requirements.md with Critical Findings
+
+**Date:** 2026-03-16
+
+**Reason:** Two critical issues discovered during Ingress/ALB deployment that were not documented in Requirements.md
+
+### Issue #1: Kubernetes RBAC - Ingress Permissions Missing
+
+**What was added to Requirements.md:**
+- Expanded "Kubernetes Permissions for GitHub Actions" section (line 56)
+- Added detailed RBAC requirements with specific API groups:
+  - `""` (core) → pods, services
+  - `apps` → deployments, replicasets
+  - `networking.k8s.io` → **ingresses** ⬅️ **THIS WAS MISSING**
+- Included example Kubernetes Role YAML for reference
+
+**Why this is critical for NextEra:**
+- Without Ingress permissions, GitHub Actions cannot deploy Ingress resources
+- Deployment will fail silently with permission errors
+- NextEra must create the Role/RoleBinding with Ingress permissions before deployment
+
+---
+
+### Issue #2: VPC Subnet Tagging Requirements - CRITICAL
+
+**What was added to Requirements.md:**
+- Added new section: "🚨 CRITICAL: VPC Subnet Tagging Requirements" under ALB section (after line 125)
+- Documented required tags for public subnets (internet-facing ALB):
+  - `kubernetes.io/cluster/<CLUSTER_NAME>=shared`
+  - `kubernetes.io/role/elb=1`
+- Documented required tags for private subnets (internal ALB):
+  - `kubernetes.io/cluster/<CLUSTER_NAME>=shared`
+  - `kubernetes.io/role/internal-elb=1`
+- Added requirements for minimum 2 subnets per AZ
+- Added verification command and common error message
+
+**Why this is CRITICAL for NextEra:**
+- **AWS Load Balancer Controller uses these tags for subnet auto-discovery**
+- Without correct tags, ALB will NEVER provision
+- Cluster name in tags MUST match actual EKS cluster name exactly
+- This is the #1 reason ALB deployments fail in EKS
+
+**Real-World Impact:**
+- In our POC, subnets were tagged for `nextera-csa-poc-eks` but cluster was `csa-poc-eks`
+- ALB failed to provision for 4+ minutes until we added correct tags
+- Without this documentation, NextEra would encounter the same issue
+
+**Status:** ✅ COMPLETED - Requirements.md updated with both critical requirements
+
+**Status:** ✅ COMPLETED
+
+**ALB Details:**
+- **ALB DNS Name:** `k8s-csapoc-csafront-0e04e0a73b-2122475177.us-east-1.elb.amazonaws.com`
+- **ALB URL:** `http://k8s-csapoc-csafront-0e04e0a73b-2122475177.us-east-1.elb.amazonaws.com`
+- **Scheme:** Internet-facing
+- **Ports:** HTTP (80)
+- **Target Type:** IP
+- **Health Check:** HTTP on path `/`
+
+**Cognito Integration Status:**
+- User Pool and App Client configured
+- Ingress annotations include Cognito auth settings
+- **⚠️ Note:** Cognito callback URLs require HTTPS. Currently using HTTP for POC.
+- **Next Step:** SSL certificate needed to enable Cognito authentication
+
+**GitHub Actions Deployment:**
+- Commit: `b360a6e` - "Add Ingress resource with ALB and Cognito authentication"
+- Workflow Run: 23151753143 - ✅ SUCCESS
+- All 9 pods redeployed successfully
+- Ingress created and ALB provisioned
+
+**ALB Testing:**
+```bash
+curl -I http://k8s-csapoc-csafront-0e04e0a73b-2122475177.us-east-1.elb.amazonaws.com/
+# HTTP/1.1 200 OK
+# Content-Type: text/html
+# Content-Length: 615
+```
+- ✅ ALB is accessible and serving frontend-ui nginx pod
+- ✅ Target health check: Healthy (Pod IP: 10.0.11.83)
+- ✅ HTTP traffic working correctly
+
+---
