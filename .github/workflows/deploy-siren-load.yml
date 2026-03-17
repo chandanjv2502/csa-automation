@@ -21,15 +21,14 @@ jobs:
           sudo systemctl restart docker
           sleep 5
 
-      - name: Checkout code
-        uses: actions/checkout@v3
-
       - name: Login to Nexus
         run: |
           echo "${{ secrets.NEXUS_PASSWORD }}" | docker login 98.92.113.55:8083 \
             --username ${{ secrets.NEXUS_USERNAME }} \
             --password-stdin
 
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Build and push Docker image to Nexus
         env:
