@@ -18,6 +18,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Login to Nexus
+        run: |
+          echo "${{ secrets.NEXUS_PASSWORD }}" | docker login 98.92.113.55:8083 \
+            --username ${{ secrets.NEXUS_USERNAME }} \
+            --password-stdin
+
+
       - name: Configure Docker for insecure registry
         run: |
           echo '{"insecure-registries": ["98.92.113.55:8083"]}' | sudo tee /etc/docker/daemon.json

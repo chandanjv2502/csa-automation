@@ -24,6 +24,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Login to Nexus
+        run: |
+          echo "${{ secrets.NEXUS_PASSWORD }}" | docker login 98.92.113.55:8083 \
+            --username ${{ secrets.NEXUS_USERNAME }} \
+            --password-stdin
+
+
       - name: Build and push Docker image to Nexus
         env:
           NEXUS_REGISTRY: "98.92.113.55:8083"
