@@ -1425,3 +1425,217 @@ Server: nginx/1.25.5
 7. Implement backup and disaster recovery procedures
 
 ---
+
+## Step 44: Add IRSA Role Annotation and boto3 for AWS Service Access
+
+**Date:** 2026-03-17
+
+**Problem Identified:**
+- User requested: "did we check if we are able to send messages to SQS?"
+- Investigation revealed two issues:
+  1. Helm ServiceAccounts missing IRSA role annotation
+  2. Backend service containers don't have boto3 (AWS SDK) installed
+
+**Root Cause Analysis:**
+
+1. **Missing IRSA Annotation:**
+```bash
+kubectl describe serviceaccount contract-discovery -n csa-poc
+# Output: No eks.amazonaws.com/role-arn annotation
+```
+- ServiceAccounts created by Helm charts had empty `annotations: {}`
+- Without IRSA annotation, pods cannot assume IAM role to access AWS services
+- The `csa-poc-service-role` IAM role exists but pods can't use it
+
+2. **Missing boto3 Dependency:**
+```bash
+kubectl exec deployment/contract-discovery -n csa-poc -- python3 -c "import boto3"
+# Error: ModuleNotFoundError: No module named 'boto3'
+```
+- Dockerfiles only had FastAPI dependencies (fastapi, uvicorn, pydantic)
+- No AWS SDK installed in containers
+
+---
+
+### Actions Taken
+
+**1. Added IRSA Role Annotation to All Helm ServiceAccounts:**
+
+Updated `helm/*/values.yaml` for all 9 services:
+```yaml
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::524997768738:role/csa-poc-service-role
+  name: ""
+```
+
+**Services Updated:**
+- frontend-ui
+- contract-discovery
+- contract-ingestion
+- ai-extraction
+- csa-routing
+- siren-load
+- notification-service
+- mock-phoenix-api
+- mock-siren-api
+
+**2. Added boto3 to All Backend Service Requirements:**
+
+Updated `src/*/requirements.txt` for all 8 backend services:
+```
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+boto3==1.34.34  # ADDED
+```
+
+**3. Committed and Pushed Changes:**
+```bash
+git add helm/*/values.yaml src/*/requirements.txt
+git commit -m "Add IRSA role annotation and boto3 to enable AWS service access"
+git push origin main
+```
+- Commit: `2154c18`
+- Triggered all 9 GitHub Actions workflows automatically
+
+---
+
+### GitHub Actions Workflow Execution
+
+**All Workflows Completed Successfully:**
+
+1. ✅ Deploy Contract Discovery (Run ID: 23181921569)
+2. ✅ Deploy Contract Ingestion (Run ID: 23181921559)
+3. ✅ Deploy AI Extraction (Run ID: 23181921571)
+4. ✅ Deploy CSA Routing (Run ID: 23181921586)
+5. ✅ Deploy Siren Load (Run ID: 23181921570)
+6. ✅ Deploy Notification Service (Run ID: 23181921605)
+7. ✅ Deploy Mock Phoenix API (Run ID: 23181921591)
+8. ✅ Deploy Mock Siren API (Run ID: 23181921598)
+9. ✅ Deploy Frontend UI (Run ID: 23181921573)
+10. ✅ Deploy to EKS (Run ID: 23181921576)
+
+**What Happened in Each Workflow:**
+1. Configured Docker for insecure registry (98.92.113.55:8083)
+2. Logged in to Nexus
+3. Built new Docker images with boto3 installed
+4. Pushed images to Nexus with tags 1.0.0 and latest
+5. Deployed updated Helm charts with IRSA annotation
+
+---
+
+### Current Status (As of 2026-03-17 06:45 UTC)
+
+**Pod Status:**
+```bash
+kubectl get pods -n csa-poc
+```
+All 9 pods still running from previous deployment (21 minutes old):
+- Old pods do NOT have new ServiceAccount with IRSA annotation
+- Old containers do NOT have boto3 installed (images rebuilt but pods not restarted)
+- Pods need to be deleted and recreated to pick up new configuration
+
+**ServiceAccount Status:**
+```bash
+kubectl describe serviceaccount contract-discovery -n csa-poc
+# Annotations: eks.amazonaws.com/role-arn: arn:aws:iam::524997768738:role/csa-poc-service-role
+```
+✅ ServiceAccounts NOW have IRSA role annotation
+
+**Docker Image Status:**
+- New images pushed to Nexus with boto3 included
+- Images available at: `98.92.113.55:8083/csa/<service>:1.0.0`
+
+---
+
+### What's Pending (Next Steps)
+
+**⏳ PENDING: Restart Pods to Apply New Configuration**
+
+To enable AWS service access, pods must be recreated:
+```bash
+kubectl delete pods --all -n csa-poc
+# Kubernetes will automatically recreate pods using:
+# - New Docker images (with boto3)
+# - New ServiceAccounts (with IRSA annotation)
+```
+
+**⏳ PENDING: Test SQS Connectivity**
+
+After pods restart, test SQS access:
+```bash
+# Test from contract-discovery pod
+kubectl exec -n csa-poc deployment/contract-discovery -- python3 -c "
+import boto3
+sqs = boto3.client('sqs', region_name='us-east-1')
+response = sqs.list_queues()
+print('SQS access working!')
+print(response)
+"
+```
+
+Expected result: Pod should successfully list SQS queues using IRSA
+
+**⏳ PENDING: Test SQS Send/Receive Message**
+
+Send test message to queue:
+```bash
+kubectl exec -n csa-poc deployment/contract-discovery -- python3 -c "
+import boto3
+sqs = boto3.client('sqs', region_name='us-east-1')
+queue_url = 'https://sqs.us-east-1.amazonaws.com/524997768738/csa-poc-contract-discovery'
+response = sqs.send_message(
+    QueueUrl=queue_url,
+    MessageBody='Test message from pod'
+)
+print('Message sent:', response['MessageId'])
+"
+```
+
+---
+
+### Summary of Changes
+
+**Files Modified:**
+- `helm/frontend-ui/values.yaml` - Added IRSA annotation
+- `helm/contract-discovery/values.yaml` - Added IRSA annotation
+- `helm/contract-ingestion/values.yaml` - Added IRSA annotation
+- `helm/ai-extraction/values.yaml` - Added IRSA annotation
+- `helm/csa-routing/values.yaml` - Added IRSA annotation
+- `helm/siren-load/values.yaml` - Added IRSA annotation
+- `helm/notification-service/values.yaml` - Added IRSA annotation
+- `helm/mock-phoenix-api/values.yaml` - Added IRSA annotation
+- `helm/mock-siren-api/values.yaml` - Added IRSA annotation
+- `src/contract-discovery/requirements.txt` - Added boto3
+- `src/contract-ingestion/requirements.txt` - Added boto3
+- `src/ai-extraction/requirements.txt` - Added boto3
+- `src/csa-routing/requirements.txt` - Added boto3
+- `src/siren-load/requirements.txt` - Added boto3
+- `src/notification-service/requirements.txt` - Added boto3
+- `src/mock-phoenix-api/requirements.txt` - Added boto3
+- `src/mock-siren-api/requirements.txt` - Added boto3
+
+**What Works Now:**
+✅ ServiceAccounts have IRSA role annotation
+✅ Docker images include boto3
+✅ GitHub Actions workflows successful
+✅ Images pushed to Nexus
+✅ Helm charts deployed with new configuration
+
+**What Needs Completion:**
+⏳ Restart pods to apply new ServiceAccount and image
+⏳ Test SQS connectivity from pods
+⏳ Test S3, Secrets Manager, RDS connectivity
+⏳ Validate end-to-end AWS service integration
+
+**Status:** ⏸️ **PAUSED - Ready to Resume**
+
+**To Resume in New Session:**
+1. Delete all pods: `kubectl delete pods --all -n csa-poc`
+2. Wait for pods to restart (30-60 seconds)
+3. Test SQS connectivity as documented above
+4. Proceed with integration testing
+
+---
