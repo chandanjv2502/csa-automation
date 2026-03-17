@@ -668,3 +668,213 @@ curl -I http://k8s-csapoc-csafront-0e04e0a73b-2122475177.us-east-1.elb.amazonaws
 - ✅ HTTP traffic working correctly
 
 ---
+
+## Step 34: Helm Charts and Nexus Registry Setup
+
+**Date:** 2026-03-17
+
+**Nexus Container Registry Details:**
+- **Registry URL:** `98.92.113.55:8083` (HTTP, not HTTPS)
+- **Registry Location:** EC2 instance with public IP
+- **Protocol:** HTTP (insecure registry)
+- **Credentials:**
+  - **Username:** `cicd-user`
+  - **Password:** `CiCd-NexUs-2026`
+
+**Why Nexus:**
+- Private container registry for NextEra's CSA Docker images
+- Deployed on EC2 for POC (production would use Nexus HA setup)
+- All 9 CSA services push images to `98.92.113.55:8083/csa/<service>:1.0.0`
+
+**Helm Charts Created:**
+- Created Helm charts for all 9 services (frontend-ui, contract-discovery, contract-ingestion, ai-extraction, csa-routing, siren-load, notification-service, mock-phoenix-api, mock-siren-api)
+- Updated `values.yaml` to pull from Nexus instead of Docker Hub
+- Example: `image.repository: 98.92.113.55:8083/csa/frontend-ui`
+
+**GitHub Actions Workflows:**
+- Created separate workflow for each service (9 total workflows)
+- Each workflow: builds Docker image → pushes to Nexus → deploys via Helm
+- Workflows trigger on changes to service code/Helm chart or manual trigger
+
+---
+
+## Step 35: Troubleshooting GitHub Actions CI/CD with Nexus Registry
+
+**Date:** 2026-03-17
+
+### Debugging Scenario: "How to Debug Docker Build/Push and Kubernetes Image Pull Issues"
+
+When setting up CI/CD pipelines with private registries, you'll encounter multiple failure points. Here's a systematic debugging approach based on real issues encountered:
+
+---
+
+#### **Phase 1: GitHub Actions Workflow Failures**
+
+**Symptom:** Workflows fail immediately (0s duration) or fail with YAML errors
+
+**How to Debug:**
+1. Check workflow syntax: Look for malformed YAML (missing colons, incorrect indentation, duplicate steps)
+   ```bash
+   gh run list --limit 10  # Check for 0s failures
+   gh run view <run-id> --log  # View error logs
+   ```
+
+2. Verify step order is logical (e.g., checkout before build, configure before login)
+
+**Common Issues:**
+- Duplicate step names without actions
+- Steps in wrong order (login before Docker config)
+- Missing required parameters
+
+**Fix Pattern:** Read the workflow file, identify structural errors, fix YAML syntax
+
+---
+
+#### **Phase 2: Docker Registry Authentication Failures**
+
+**Symptom:** `Error response from daemon: http: server gave HTTP response to HTTPS client`
+
+**How to Debug:**
+1. Identify if registry uses HTTP or HTTPS
+   ```bash
+   curl http://<registry-ip>:<port>/v2/  # Test HTTP
+   curl https://<registry-ip>:<port>/v2/ # Test HTTPS
+   ```
+
+2. Check if Docker daemon is configured for insecure registries
+   ```bash
+   cat /etc/docker/daemon.json  # Should have "insecure-registries" array
+   ```
+
+**Root Cause:** Docker defaults to HTTPS. HTTP registries require explicit configuration.
+
+**Fix Pattern:**
+```yaml
+- name: Configure Docker for insecure registry
+  run: |
+    echo '{"insecure-registries": ["<registry-ip>:<port>"]}' | sudo tee /etc/docker/daemon.json
+    sudo systemctl restart docker
+    sleep 5
+```
+
+**Critical:** This step MUST come BEFORE docker login
+
+---
+
+#### **Phase 3: Docker Login Authentication Failures**
+
+**Symptom:** `no basic auth credentials` or `unauthorized: authentication required`
+
+**How to Debug:**
+1. Check if registry requires authentication
+   ```bash
+   curl http://<registry-ip>:<port>/v2/_catalog  # Test anonymous access
+   ```
+
+2. Verify credentials are stored as GitHub Secrets
+   ```bash
+   gh secret list  # Check if NEXUS_USERNAME and NEXUS_PASSWORD exist
+   ```
+
+3. Test credentials locally
+   ```bash
+   docker login <registry-ip>:<port> --username <user> --password <pass>
+   ```
+
+**Root Cause:** Registry requires authentication but no credentials provided
+
+**Fix Pattern:**
+1. Add credentials to GitHub Secrets (`gh secret set NEXUS_USERNAME`, `gh secret set NEXUS_PASSWORD`)
+2. Add login step to workflow AFTER configuring Docker for insecure registry
+```yaml
+- name: Login to Nexus
+  run: |
+    echo "${{ secrets.NEXUS_PASSWORD }}" | docker login <registry> \
+      --username ${{ secrets.NEXUS_USERNAME }} \
+      --password-stdin
+```
+
+---
+
+#### **Phase 4: Docker Build Success but Helm Deployment Failures**
+
+**Symptom:** Docker images push successfully to Nexus, but Helm deployments timeout or fail with API rate limiting
+
+**How to Debug:**
+1. Check if workflows are waiting for pods to be ready
+   ```bash
+   gh run view <run-id> --log | grep -i "wait\|timeout"
+   ```
+
+2. Check Helm deployment flags
+   ```bash
+   # In workflow: helm upgrade --install <chart> --wait --timeout 5m
+   ```
+
+**Root Cause:** Multiple workflows deploying simultaneously with `--wait` flag overwhelm Kubernetes API
+
+**Fix Pattern:** Remove `--wait` flag from Helm deployment to avoid blocking on pod readiness
+```yaml
+helm upgrade --install <service> ./helm/<service> \
+  --namespace csa-poc \
+  --timeout 5m  # Removed: --wait
+```
+
+**Alternative:** Use separate verify step with kubectl if readiness check needed
+
+---
+
+#### **Phase 5: Kubernetes Pods Cannot Pull Images**
+
+**Symptom:** Pods stuck in `ImagePullBackOff` or `ErrImagePull` status
+
+**How to Debug:**
+1. Check pod events for exact error
+   ```bash
+   kubectl get pods -n <namespace>
+   kubectl describe pod <pod-name> -n <namespace> | grep -A 10 "Events:"
+   ```
+
+2. Look for specific error messages:
+   - `http: server gave HTTP response to HTTPS client` → Containerd needs insecure registry config
+   - `unauthorized` → Image pull secret missing
+   - `manifest unknown` → Image doesn't exist in registry
+
+**Root Cause (Common):** Kubernetes worker nodes use containerd which defaults to HTTPS. HTTP registries require configuration.
+
+**Fix Pattern for HTTP Registries:**
+
+Create a DaemonSet that configures containerd on all nodes:
+```yaml
+# Create containerd registry config
+/etc/containerd/certs.d/<registry-ip>:<port>/hosts.toml:
+  server = "http://<registry-ip>:<port>"
+  [host."http://<registry-ip>:<port>"]
+    capabilities = ["pull", "resolve"]
+    skip_verify = true
+
+# Restart containerd
+systemctl restart containerd
+```
+
+**Deployment:**
+1. Apply DaemonSet to configure all nodes
+2. Delete existing failed pods
+3. New pods will pull successfully from HTTP registry
+
+---
+
+### **Key Takeaway: Systematic Debugging Approach**
+
+1. **GitHub Actions → Docker Build/Push → Kubernetes Pull** is a 3-phase pipeline
+2. Debug **one phase at a time** starting from the earliest failure
+3. **Check logs at each layer:**
+   - GitHub Actions logs: `gh run view --log`
+   - Docker daemon logs: `journalctl -u docker`
+   - Kubernetes pod events: `kubectl describe pod`
+4. **Common pattern:** HTTP registries need configuration at EVERY layer (Docker daemon, containerd)
+5. **Authentication:** Must be configured in GitHub Secrets + workflow + optionally Kubernetes imagePullSecrets
+
+**Status:** ✅ All issues resolved - Docker images building, pushing to Nexus successfully. Kubernetes containerd configured for HTTP registry.
+
+---
