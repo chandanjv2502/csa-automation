@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-extraction
+  namespace: csa-poc
+  labels:
+    app: ai-extraction
+    component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-extraction
+  template:
+    metadata:
+      labels:
+        app: ai-extraction
+        component: backend
+    spec:
+      containers:
+      - name: ai-extraction
+        image: python:3.11-slim
+        command: ["python", "-m", "http.server", "8082"]
+        ports:
+        - containerPort: 8082
+          name: http
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-extraction
+  namespace: csa-poc
+  labels:
+    app: ai-extraction
+spec:
+  type: ClusterIP
+  selector:
+    app: ai-extraction
+  ports:
+  - port: 8082
+    targetPort: 8082
+    protocol: TCP
+    name: http

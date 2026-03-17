@@ -536,6 +536,104 @@ kubectl rollout restart deployment aws-load-balancer-controller -n kube-system
 
 **Status:** ✅ COMPLETED - Requirements.md updated with both critical requirements
 
+---
+
+## Step 33: Create RDS PostgreSQL Database
+
+**Date:** 2026-03-16
+
+**Commands:**
+
+1. **Created DB Subnet Group (Private Subnets):**
+```bash
+AWS_PROFILE=staging-server aws rds create-db-subnet-group \
+  --db-subnet-group-name csa-poc-db-subnet-group \
+  --db-subnet-group-description "CSA POC RDS subnet group in private subnets" \
+  --subnet-ids subnet-0bfd132951efac411 subnet-007f0aeccf5f30758 \
+  --region us-east-1
+```
+- Subnets: subnet-0bfd132951efac411 (us-east-1a), subnet-007f0aeccf5f30758 (us-east-1b)
+- VPC: vpc-012a60d830a2d3cca
+
+2. **Created RDS Security Group:**
+```bash
+AWS_PROFILE=staging-server aws ec2 create-security-group \
+  --group-name csa-poc-rds-sg \
+  --description "Security group for CSA POC RDS PostgreSQL" \
+  --vpc-id vpc-012a60d830a2d3cca \
+  --region us-east-1
+```
+- Security Group ID: sg-08e215c7a154298c5
+
+3. **Allowed PostgreSQL Traffic from EKS Cluster:**
+```bash
+AWS_PROFILE=staging-server aws ec2 authorize-security-group-ingress \
+  --group-id sg-08e215c7a154298c5 \
+  --protocol tcp \
+  --port 5432 \
+  --source-group sg-09773e61e94c6a564 \
+  --region us-east-1
+```
+- Ingress Rule: Port 5432 from EKS cluster security group (sg-09773e61e94c6a564)
+
+4. **Created RDS PostgreSQL Instance:**
+```bash
+AWS_PROFILE=staging-server aws rds create-db-instance \
+  --db-instance-identifier csa-poc-postgres-dev \
+  --db-instance-class db.t3.medium \
+  --engine postgres \
+  --engine-version 16.3 \
+  --master-username csaadmin \
+  --allocated-storage 100 \
+  --storage-type gp3 \
+  --storage-encrypted \
+  --db-subnet-group-name csa-poc-db-subnet-group \
+  --vpc-security-group-ids sg-08e215c7a154298c5 \
+  --multi-az \
+  --db-name csapocdb \
+  --backup-retention-period 7 \
+  --no-publicly-accessible \
+  --region us-east-1
+```
+
+**RDS Instance Details:**
+- **DB Instance Identifier:** csa-poc-postgres-dev
+- **Engine:** PostgreSQL 16.3
+- **Instance Class:** db.t3.medium (2 vCPU, 4 GB RAM)
+- **Storage:** 100 GB gp3 (3000 IOPS, 125 MB/s throughput)
+- **Storage Encrypted:** Yes (KMS: arn:aws:kms:us-east-1:524997768738:key/510d3cad-8846-4c4a-9780-d8dfb38e2df3)
+- **Multi-AZ:** Yes (High Availability)
+- **Database Name:** csapocdb
+- **Master Username:** csaadmin
+- **Master Password:** Stored in Secrets Manager
+- **Publicly Accessible:** No (Private only)
+- **Backup Retention:** 7 days
+- **Backup Window:** 03:00-04:00 UTC
+- **Maintenance Window:** Monday 04:00-05:00 UTC
+- **ARN:** arn:aws:rds:us-east-1:524997768738:db:csa-poc-postgres-dev
+
+5. **Updated Secrets Manager with RDS Credentials:**
+```bash
+AWS_PROFILE=staging-server aws secretsmanager update-secret \
+  --secret-id csa-poc/dev/postgres \
+  --secret-string '{"username":"csaadmin","password":"***","engine":"postgres","host":"TBD","port":5432,"dbname":"csapocdb","dbInstanceIdentifier":"csa-poc-postgres-dev"}' \
+  --region us-east-1
+```
+- Secret ARN: arn:aws:secretsmanager:us-east-1:524997768738:secret:csa-poc/dev/postgres-RLdYRg
+- **Note:** RDS endpoint will be updated in secret once instance is available
+
+**Status:** ⏳ IN PROGRESS - RDS instance creating (10-15 minutes)
+
+**Current Status:** `creating` (checked at time of documentation)
+
+**Next Steps:**
+1. Wait for RDS instance to become `available`
+2. Retrieve RDS endpoint
+3. Update Secrets Manager with actual endpoint
+4. Test database connectivity from EKS pods
+
+---
+
 **Status:** ✅ COMPLETED
 
 **ALB Details:**

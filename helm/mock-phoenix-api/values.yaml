@@ -4,8 +4,8 @@ namespace: csa-poc
 replicaCount: 1
 
 image:
-  repository: python
-  tag: "3.11-slim"
+  repository: 98.92.113.55:8083/csa/mock-phoenix-api
+  tag: "1.0.0"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []

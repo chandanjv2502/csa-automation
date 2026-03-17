@@ -1,0 +1,78 @@
+name: Deploy Mock Siren API
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/mock-siren-api/**'
+      - 'helm/mock-siren-api/**'
+      - '.github/workflows/deploy-mock-siren-api.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Build and push Docker image to Nexus
+        env:
+          NEXUS_REGISTRY: "98.92.113.55:8083"
+          SERVICE: "mock-siren-api"
+          VERSION: "1.0.0"
+        run: |
+          echo "Building $SERVICE..."
+          docker build -t $NEXUS_REGISTRY/csa/$SERVICE:$VERSION \
+                       -t $NEXUS_REGISTRY/csa/$SERVICE:latest \
+                       ./src/$SERVICE/
+
+          echo "Pushing to Nexus..."
+          docker push $NEXUS_REGISTRY/csa/$SERVICE:$VERSION
+          docker push $NEXUS_REGISTRY/csa/$SERVICE:latest
+
+          echo "✅ Image pushed successfully"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name ${{ secrets.EKS_CLUSTER_NAME }} \
+            --region ${{ secrets.AWS_REGION }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.14.0'
+
+      - name: Deploy mock-siren-api using Helm
+        run: |
+          echo "Deploying mock-siren-api to namespace: csa-poc"
+
+          helm upgrade --install mock-siren-api ./helm/mock-siren-api \
+            --namespace csa-poc \
+            --wait \
+            --timeout 5m
+
+          echo "✅ mock-siren-api deployed successfully"
+
+      - name: Verify deployment
+        run: |
+          echo "Checking rollout status..."
+          kubectl rollout status deployment/mock-siren-api -n csa-poc --timeout=2m
+
+          echo ""
+          echo "Pod status:"
+          kubectl get pods -n csa-poc -l app=mock-siren-api
+
+          echo ""
+          echo "Service status:"
+          kubectl get service mock-siren-api -n csa-poc

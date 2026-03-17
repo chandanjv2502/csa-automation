@@ -1,0 +1,78 @@
+name: Deploy Frontend UI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/frontend-ui/**'
+      - 'helm/frontend-ui/**'
+      - '.github/workflows/deploy-frontend-ui.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Build and push Docker image to Nexus
+        env:
+          NEXUS_REGISTRY: "98.92.113.55:8083"
+          SERVICE: "frontend-ui"
+          VERSION: "1.0.0"
+        run: |
+          echo "Building $SERVICE..."
+          docker build -t $NEXUS_REGISTRY/csa/$SERVICE:$VERSION \
+                       -t $NEXUS_REGISTRY/csa/$SERVICE:latest \
+                       ./src/$SERVICE/
+
+          echo "Pushing to Nexus..."
+          docker push $NEXUS_REGISTRY/csa/$SERVICE:$VERSION
+          docker push $NEXUS_REGISTRY/csa/$SERVICE:latest
+
+          echo "✅ Image pushed successfully"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name ${{ secrets.EKS_CLUSTER_NAME }} \
+            --region ${{ secrets.AWS_REGION }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.14.0'
+
+      - name: Deploy frontend-ui using Helm
+        run: |
+          echo "Deploying frontend-ui to namespace: csa-poc"
+
+          helm upgrade --install frontend-ui ./helm/frontend-ui \
+            --namespace csa-poc \
+            --wait \
+            --timeout 5m
+
+          echo "✅ frontend-ui deployed successfully"
+
+      - name: Verify deployment
+        run: |
+          echo "Checking rollout status..."
+          kubectl rollout status deployment/frontend-ui -n csa-poc --timeout=2m
+
+          echo ""
+          echo "Pod status:"
+          kubectl get pods -n csa-poc -l app=frontend-ui
+
+          echo ""
+          echo "Service status:"
+          kubectl get service frontend-ui -n csa-poc

@@ -23,8 +23,56 @@ on:
           - mock-siren-api
 
 jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Build and push Docker images to Nexus
+        env:
+          NEXUS_REGISTRY: "98.92.113.55:8083"
+          VERSION: "1.0.0"
+        run: |
+          echo "Building and pushing Docker images to Nexus..."
+
+          # Array of services
+          services=(
+            "frontend-ui"
+            "contract-discovery"
+            "contract-ingestion"
+            "ai-extraction"
+            "csa-routing"
+            "siren-load"
+            "notification-service"
+            "mock-phoenix-api"
+            "mock-siren-api"
+          )
+
+          # Check if specific service was selected
+          if [ -n "${{ github.event.inputs.service }}" ]; then
+            services=("${{ github.event.inputs.service }}")
+          fi
+
+          # Build and push each service
+          for service in "${services[@]}"; do
+            echo "========================================="
+            echo "Building $service..."
+            echo "========================================="
+
+            IMAGE_NAME="$NEXUS_REGISTRY/csa/$service"
+
+            docker build -t "$IMAGE_NAME:$VERSION" -t "$IMAGE_NAME:latest" ./src/$service/
+            docker push "$IMAGE_NAME:$VERSION"
+            docker push "$IMAGE_NAME:latest"
+
+            echo "✅ $service completed!"
+          done
+
   deploy:
     runs-on: ubuntu-latest
+    needs: build-and-push  # Wait for images to be built and pushed
 
     steps:
       - name: Checkout code
