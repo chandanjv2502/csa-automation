@@ -71,7 +71,6 @@ jobs:
 
           helm upgrade --install frontend-ui ./helm/frontend-ui \
             --namespace csa-poc \
-            --wait \
             --timeout 5m
 
           echo "✅ frontend-ui deployed successfully"

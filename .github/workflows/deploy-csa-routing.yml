@@ -71,7 +71,6 @@ jobs:
 
           helm upgrade --install csa-routing ./helm/csa-routing \
             --namespace csa-poc \
-            --wait \
             --timeout 5m
 
           echo "✅ csa-routing deployed successfully"

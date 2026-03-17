@@ -71,7 +71,6 @@ jobs:
 
           helm upgrade --install contract-discovery ./helm/contract-discovery \
             --namespace csa-poc \
-            --wait \
             --timeout 5m
 
           echo "✅ contract-discovery deployed successfully"

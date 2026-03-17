@@ -71,7 +71,6 @@ jobs:
 
           helm upgrade --install siren-load ./helm/siren-load \
             --namespace csa-poc \
-            --wait \
             --timeout 5m
 
           echo "✅ siren-load deployed successfully"

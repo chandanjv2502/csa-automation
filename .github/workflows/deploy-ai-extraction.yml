@@ -71,7 +71,6 @@ jobs:
 
           helm upgrade --install ai-extraction ./helm/ai-extraction \
             --namespace csa-poc \
-            --wait \
             --timeout 5m
 
           echo "✅ ai-extraction deployed successfully"

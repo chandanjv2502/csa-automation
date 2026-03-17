@@ -71,7 +71,6 @@ jobs:
 
           helm upgrade --install mock-siren-api ./helm/mock-siren-api \
             --namespace csa-poc \
-            --wait \
             --timeout 5m
 
           echo "✅ mock-siren-api deployed successfully"
