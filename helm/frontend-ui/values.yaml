@@ -51,7 +51,8 @@ service:
   type: ClusterIP
   port: 80
   targetPort: 80
-  annotations: {}
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::524997768738:role/csa-poc-service-role
 
 # Container port
 containerPort: 80

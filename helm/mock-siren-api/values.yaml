@@ -12,14 +12,16 @@ imagePullSecrets: []
 
 serviceAccount:
   create: true
-  annotations: {}
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::524997768738:role/csa-poc-service-role
   name: ""
 
 service:
   type: ClusterIP
   port: 8080
   targetPort: 8080
-  annotations: {}
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::524997768738:role/csa-poc-service-role
 
 containerPort: 8080
 

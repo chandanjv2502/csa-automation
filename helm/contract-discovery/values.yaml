@@ -12,7 +12,8 @@ imagePullSecrets: []
 
 serviceAccount:
   create: true
-  annotations: {}
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::524997768738:role/csa-poc-service-role
   name: ""
 
 service:
