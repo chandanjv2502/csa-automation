@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: containerd-config
+  namespace: kube-system
+data:
+  configure-containerd.sh: |
+    #!/bin/bash
+    set -e
+
+    echo "Configuring containerd for insecure registry: 98.92.113.55:8083"
+
+    CONFIG_FILE="/host/etc/containerd/config.toml"
+
+    # Check if registry already configured
+    if grep -q "98.92.113.55:8083" "$CONFIG_FILE"; then
+      echo "Registry 98.92.113.55:8083 already configured"
+    else
+      echo "Adding registry configuration..."
+
+      # Backup original config
+      cp "$CONFIG_FILE" "${CONFIG_FILE}.backup-$(date +%s)"
+
+      # Add mirror configuration
+      sed -i '/\[plugins\."io\.containerd\.grpc\.v1\.cri"\.registry\.mirrors\]/a\    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."98.92.113.55:8083"]\n      endpoint = ["http://98.92.113.55:8083"]' "$CONFIG_FILE"
+
+      # Add TLS configuration
+      sed -i '/\[plugins\."io\.containerd\.grpc\.v1\.cri"\.registry\.configs\]/a\    [plugins."io.containerd.grpc.v1.cri".registry.configs."98.92.113.55:8083".tls]\n      insecure_skip_verify = true' "$CONFIG_FILE"
+
+      echo "Configuration added to $CONFIG_FILE"
+      echo "Restarting containerd..."
+      nsenter -t 1 -m -u -i -n systemctl restart containerd
+      sleep 5
+      echo "Containerd restarted successfully"
+    fi
+
+    # Keep container running
+    tail -f /dev/null
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: containerd-config
+  namespace: kube-system
+  labels:
+    app: containerd-config
+spec:
+  selector:
+    matchLabels:
+      app: containerd-config
+  template:
+    metadata:
+      labels:
+        app: containerd-config
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+      - name: configure
+        image: alpine:latest
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            apk add --no-cache util-linux bash
+            /scripts/configure-containerd.sh
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: host-fs
+          mountPath: /host
+        - name: scripts
+          mountPath: /scripts
+      volumes:
+      - name: host-fs
+        hostPath:
+          path: /
+      - name: scripts
+        configMap:
+          name: containerd-config
+          defaultMode: 0755
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
