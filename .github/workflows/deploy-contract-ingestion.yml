@@ -15,8 +15,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-
       - name: Configure Docker for insecure registry
         run: |
           echo '{"insecure-registries": ["98.92.113.55:8083"]}' | sudo tee /etc/docker/daemon.json
