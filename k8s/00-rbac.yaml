@@ -45,7 +45,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: csa-deployer
-  namespace: csa-poc
+  namespace: csa-clone
 rules:
   # Core resources for application deployments
   - apiGroups: [""]
@@ -95,7 +95,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: csa-deployer-binding
-  namespace: csa-poc
+  namespace: csa-clone
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role

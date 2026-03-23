@@ -1,0 +1,80 @@
+# eksctl configuration for nextera-clone EKS cluster
+# ULTRA COST-OPTIMIZED for $100 credit constraint
+# Uses VPC endpoints instead of NAT Gateway to save ~$32/month
+
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: csa-clone-eks
+  region: us-east-1
+  version: "1.31"
+
+# OIDC provider is REQUIRED for IRSA (IAM Roles for Service Accounts)
+iam:
+  withOIDC: true
+
+# VPC Configuration - No NAT Gateway (use VPC endpoints instead)
+vpc:
+  cidr: 10.1.0.0/16
+  nat:
+    gateway: Disable  # Disable NAT Gateway to save $32/month
+
+# Availability Zones - Minimum 2 AZs required by EKS
+availabilityZones: ["us-east-1a", "us-east-1b"]
+
+# Managed Node Group - Ultra cost-optimized
+managedNodeGroups:
+  - name: csa-clone-private-nodes
+    instanceType: t3.micro  # Ultra-cost optimized (~$7.5/month)
+
+    minSize: 1
+    maxSize: 2
+    desiredCapacity: 1
+
+    # Use PUBLIC networking since we disabled NAT Gateway
+    # Pods will use VPC endpoints for AWS services
+    privateNetworking: false
+
+    volumeSize: 20
+    volumeType: gp3
+
+    labels:
+      environment: clone
+      purpose: poc-validation
+
+    tags:
+      Environment: clone
+      Project: csa-automation
+      ManagedBy: eksctl
+      CostCenter: poc
+
+    iam:
+      withAddonPolicies:
+        imageBuilder: true
+        autoScaler: true
+        ebs: true
+        efs: true
+        albIngress: true
+        cloudWatch: true
+
+    ssh:
+      allow: false
+
+# CloudWatch Logging - Disabled to save costs
+cloudWatch:
+  clusterLogging:
+    enableTypes: []
+
+# Add-ons
+addons:
+  - name: vpc-cni
+    version: latest
+  - name: coredns
+    version: latest
+  - name: kube-proxy
+    version: latest
+  - name: aws-ebs-csi-driver
+    version: latest
+    wellKnownPolicies:
+      ebsCSIController: true

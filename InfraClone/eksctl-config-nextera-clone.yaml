@@ -1,0 +1,81 @@
+# eksctl configuration for nextera-clone EKS cluster
+# Cost-optimized deployment for $100 credit constraint
+# Based on staging-server infrastructure but with reduced resources
+
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: csa-clone-eks
+  region: us-east-1
+  version: "1.31"
+
+# OIDC provider is REQUIRED for IRSA (IAM Roles for Service Accounts)
+iam:
+  withOIDC: true
+
+# VPC Configuration - Let eksctl create VPC automatically with minimal resources
+vpc:
+  cidr: 10.1.0.0/16
+  nat:
+    gateway: Single  # Use single NAT Gateway instead of HighlyAvailable (saves ~$32/month)
+
+# Availability Zones - Minimum 2 AZs required by EKS
+availabilityZones: ["us-east-1a", "us-east-1b"]
+
+# Managed Node Group - Maximum cost optimization
+managedNodeGroups:
+  - name: csa-clone-private-nodes
+    instanceType: t3.micro  # Ultra-cost optimized (~$7.5/month vs $15 for t3.small)
+
+    minSize: 1
+    maxSize: 2
+    desiredCapacity: 1  # Reduced from 2 nodes to 1 (50% cost savings on nodes)
+
+    privateNetworking: true
+
+    volumeSize: 20  # Default disk size
+    volumeType: gp3  # gp3 is cheaper than gp2
+
+    labels:
+      environment: clone
+      purpose: poc-validation
+
+    tags:
+      Environment: clone
+      Project: csa-automation
+      ManagedBy: eksctl
+      CostCenter: poc
+
+    iam:
+      withAddonPolicies:
+        imageBuilder: true
+        autoScaler: true
+        ebs: true
+        efs: true
+        albIngress: true
+        cloudWatch: true
+
+    ssh:
+      allow: false  # Disable SSH for security (saves on bastion host costs)
+
+# CloudWatch Logging - Disabled to save costs (can enable for debugging)
+cloudWatch:
+  clusterLogging:
+    enableTypes: []
+    # Enable only if needed for debugging:
+    # enableTypes: ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+
+# Add-ons
+addons:
+  - name: vpc-cni
+    version: latest
+  - name: coredns
+    version: latest
+  - name: kube-proxy
+    version: latest
+  # AWS EBS CSI Driver for persistent volumes
+  - name: aws-ebs-csi-driver
+    version: latest
+    wellKnownPolicies:
+      ebsCSIController: true

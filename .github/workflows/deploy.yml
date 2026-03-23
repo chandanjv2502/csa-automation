@@ -108,19 +108,24 @@ jobs:
         with:
           version: 'v3.14.0'
 
+      - name: Create namespace if not exists
+        run: |
+          kubectl create namespace csa-clone --dry-run=client -o yaml | kubectl apply -f -
+          echo "✅ Namespace csa-clone ready"
+
       - name: Verify authentication
         run: |
-          echo "Verifying deployment permissions in csa-poc namespace..."
-          kubectl auth can-i create deployments -n csa-poc || exit 1
-          kubectl auth can-i create services -n csa-poc || exit 1
-          kubectl auth can-i create ingresses -n csa-poc || exit 1
-          kubectl auth can-i create secrets -n csa-poc || exit 1
-          kubectl auth can-i create serviceaccounts -n csa-poc || exit 1
+          echo "Verifying deployment permissions in csa-clone namespace..."
+          kubectl auth can-i create deployments -n csa-clone || exit 1
+          kubectl auth can-i create services -n csa-clone || exit 1
+          kubectl auth can-i create ingresses -n csa-clone || exit 1
+          kubectl auth can-i create secrets -n csa-clone || exit 1
+          kubectl auth can-i create serviceaccounts -n csa-clone || exit 1
           echo "✅ Permissions verified!"
 
       - name: Deploy services using Helm
         run: |
-          echo "Deploying CSA services to namespace: csa-poc"
+          echo "Deploying CSA services to namespace: csa-clone"
 
           # Check if specific service was selected via workflow_dispatch
           if [ -n "${{ github.event.inputs.service }}" ]; then
@@ -145,7 +150,7 @@ jobs:
           for service in "${services[@]}"; do
             echo "Deploying $service..."
             helm upgrade --install $service ./helm/$service \
-              --namespace csa-poc
+              --namespace csa-clone
             echo "✅ $service Helm release updated"
           done
 
@@ -177,22 +182,22 @@ jobs:
 
           for service in "${services[@]}"; do
             echo "Checking rollout status for $service..."
-            kubectl rollout status deployment/$service -n csa-poc --timeout=2m || true
+            kubectl rollout status deployment/$service -n csa-clone --timeout=2m || true
           done
 
           echo ""
           echo "Deployment successful! Listing all pods:"
-          kubectl get pods -n csa-poc -o wide
+          kubectl get pods -n csa-clone -o wide
           echo ""
           echo "Listing all services:"
-          kubectl get services -n csa-poc
+          kubectl get services -n csa-clone
           echo ""
           echo "Listing Helm releases:"
-          helm list -n csa-poc
+          helm list -n csa-clone
           echo ""
           echo "Listing Ingress resources:"
-          kubectl get ingress -n csa-poc
+          kubectl get ingress -n csa-clone
           echo ""
           echo "Waiting for ALB to be provisioned (this may take 2-3 minutes)..."
           sleep 30
-          kubectl get ingress csa-frontend-ingress -n csa-poc -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' || echo "ALB not ready yet"
+          kubectl get ingress csa-frontend-ingress -n csa-clone -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' || echo "ALB not ready yet"

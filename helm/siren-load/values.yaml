@@ -1,5 +1,5 @@
 # Default values for siren-load
-namespace: csa-poc
+namespace: csa-clone
 
 replicaCount: 1
 

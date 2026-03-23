@@ -67,10 +67,10 @@ jobs:
 
       - name: Deploy siren-load using Helm
         run: |
-          echo "Deploying siren-load to namespace: csa-poc"
+          echo "Deploying siren-load to namespace: csa-clone"
 
           helm upgrade --install siren-load ./helm/siren-load \
-            --namespace csa-poc \
+            --namespace csa-clone \
             --timeout 5m
 
           echo "✅ siren-load deployed successfully"
@@ -78,12 +78,12 @@ jobs:
       - name: Verify deployment
         run: |
           echo "Checking rollout status..."
-          kubectl rollout status deployment/siren-load -n csa-poc --timeout=2m
+          kubectl rollout status deployment/siren-load -n csa-clone --timeout=2m
 
           echo ""
           echo "Pod status:"
-          kubectl get pods -n csa-poc -l app=siren-load
+          kubectl get pods -n csa-clone -l app=siren-load
 
           echo ""
           echo "Service status:"
-          kubectl get service siren-load -n csa-poc
+          kubectl get service siren-load -n csa-clone

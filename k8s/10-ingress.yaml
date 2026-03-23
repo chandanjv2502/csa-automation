@@ -2,7 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: csa-frontend-ingress
-  namespace: csa-poc
+  namespace: csa-clone
   annotations:
     # AWS Load Balancer Controller annotations
     alb.ingress.kubernetes.io/scheme: internet-facing

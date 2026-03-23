@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mock-phoenix-api
-  namespace: csa-poc
+  namespace: csa-clone
   labels:
     app: mock-phoenix-api
     component: mock
@@ -36,7 +36,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: mock-phoenix-api
-  namespace: csa-poc
+  namespace: csa-clone
   labels:
     app: mock-phoenix-api
 spec:

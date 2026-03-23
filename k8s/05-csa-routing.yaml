@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: csa-routing
-  namespace: csa-poc
+  namespace: csa-clone
   labels:
     app: csa-routing
     component: backend
@@ -36,7 +36,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: csa-routing
-  namespace: csa-poc
+  namespace: csa-clone
   labels:
     app: csa-routing
 spec:

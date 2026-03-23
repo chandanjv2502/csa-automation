@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 # Namespace where the service will be deployed
-namespace: csa-clone
+namespace: csa-poc
 
 # Deployment configuration
 replicaCount: 1
@@ -51,8 +51,7 @@ service:
   type: ClusterIP
   port: 80
   targetPort: 80
-  annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::524997768738:role/csa-poc-service-role
+  annotations: {}
 
 # Container port
 containerPort: 80

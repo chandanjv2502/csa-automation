@@ -1,5 +1,5 @@
 # Default values for notification-service
-namespace: csa-poc
+namespace: csa-clone
 
 replicaCount: 1
 

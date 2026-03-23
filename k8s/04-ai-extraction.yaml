@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ai-extraction
-  namespace: csa-poc
+  namespace: csa-clone
   labels:
     app: ai-extraction
     component: backend
@@ -36,7 +36,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: ai-extraction
-  namespace: csa-poc
+  namespace: csa-clone
   labels:
     app: ai-extraction
 spec:

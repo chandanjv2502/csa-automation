@@ -1,5 +1,5 @@
 # Default values for ai-extraction
-namespace: csa-poc
+namespace: csa-clone
 
 replicaCount: 1
 
