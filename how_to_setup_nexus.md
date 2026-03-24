@@ -282,7 +282,65 @@ b1b4d60c-2290-4b16-a466-1d6222e03254
   - **Roles:** Select `nx-admin`
 - Click **Create**
 
-### 4.3 Save Credentials for GitHub Secrets
+### 4.3 Verify User Creation
+
+**IMPORTANT:** Verify the user was created successfully:
+
+```bash
+# SSH into Nexus EC2 instance
+ssh -i ./nextera-clone-nexus-key.pem ec2-user@44.202.63.187
+
+# Check if cicd-user exists
+curl -u admin:CstgQa-123 http://localhost:8081/service/rest/v1/security/users | \
+  jq '.[] | select(.userId=="cicd-user")'
+
+# Should return user details. If empty, user was not created.
+```
+
+### 4.4 Alternative: Create User via API
+
+If manual UI creation fails or you prefer automation, use the REST API:
+
+```bash
+# Create cicd-user via Nexus REST API
+ssh -i ./nextera-clone-nexus-key.pem ec2-user@44.202.63.187 'curl -X POST "http://localhost:8081/service/rest/v1/security/users" \
+  -u "admin:CstgQa-123" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"userId\": \"cicd-user\",
+    \"firstName\": \"CI\",
+    \"lastName\": \"CD User\",
+    \"emailAddress\": \"cicd@localhost\",
+    \"password\": \"CiCd-NexUs-2026\",
+    \"status\": \"active\",
+    \"roles\": [\"nx-admin\"]
+  }"'
+```
+
+**Expected Response:**
+```json
+{
+  "userId": "cicd-user",
+  "firstName": "CI",
+  "lastName": "CD User",
+  "emailAddress": "cicd@localhost",
+  "source": "default",
+  "status": "active",
+  "roles": ["nx-admin"]
+}
+```
+
+### 4.5 Test User Credentials
+
+```bash
+# Test authentication with cicd-user
+curl -u "cicd-user:CiCd-NexUs-2026" http://44.202.63.187:8083/v2/
+
+# Should return empty response with exit code 0 (success)
+# If you get 401 Unauthorized, the user was not created correctly
+```
+
+### 4.6 Save Credentials for GitHub Secrets
 
 - `NEXUS_USERNAME`: `cicd-user`
 - `NEXUS_PASSWORD`: `CiCd-NexUs-2026`
@@ -451,6 +509,73 @@ imagePullSecrets:
 ---
 
 ## Troubleshooting
+
+### GitHub Actions: 401 Unauthorized Error
+
+**Symptom:**
+```
+Error response from daemon: login attempt to http://44.202.63.187:8083/v2/
+failed with status: 401 Unauthorized
+```
+
+**Root Cause:** The `cicd-user` does not exist in Nexus or has incorrect credentials.
+
+**Diagnosis:**
+
+1. **Check if cicd-user exists:**
+```bash
+ssh -i ./nextera-clone-nexus-key.pem ec2-user@44.202.63.187 \
+  "curl -u admin:CstgQa-123 http://localhost:8081/service/rest/v1/security/users | \
+  jq '.[] | select(.userId==\"cicd-user\")'"
+```
+
+If this returns nothing, the user was not created.
+
+2. **List all users to confirm:**
+```bash
+ssh -i ./nextera-clone-nexus-key.pem ec2-user@44.202.63.187 \
+  "curl -u admin:CstgQa-123 http://localhost:8081/service/rest/v1/security/users | \
+  jq '.[] | {userId, firstName, lastName, roles}'"
+```
+
+**Fix:**
+
+1. **Create cicd-user via API:**
+```bash
+ssh -i ./nextera-clone-nexus-key.pem ec2-user@44.202.63.187 'curl -X POST \
+  "http://localhost:8081/service/rest/v1/security/users" \
+  -u "admin:CstgQa-123" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"userId\": \"cicd-user\",
+    \"firstName\": \"CI\",
+    \"lastName\": \"CD User\",
+    \"emailAddress\": \"cicd@localhost\",
+    \"password\": \"CiCd-NexUs-2026\",
+    \"status\": \"active\",
+    \"roles\": [\"nx-admin\"]
+  }"'
+```
+
+2. **Test credentials:**
+```bash
+curl -u "cicd-user:CiCd-NexUs-2026" http://44.202.63.187:8083/v2/
+# Should return empty response (exit code 0)
+```
+
+3. **Update GitHub Secrets:**
+```bash
+echo "cicd-user" | gh secret set NEXUS_USERNAME
+echo "CiCd-NexUs-2026" | gh secret set NEXUS_PASSWORD
+
+# Verify secrets were updated
+gh secret list | grep NEXUS
+```
+
+4. **Trigger workflow again:**
+```bash
+gh workflow run "Deploy to EKS" --ref main
+```
 
 ### Nexus Container Won't Start
 

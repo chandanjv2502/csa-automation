@@ -23,6 +23,10 @@ jobs:
 
       - name: Login to Nexus
         run: |
+          echo "========================================="
+          echo "Logging into Nexus Registry: 44.202.63.187:8083"
+          echo "Username: ${{ secrets.NEXUS_USERNAME }}"
+          echo "========================================="
           echo "${{ secrets.NEXUS_PASSWORD }}" | docker login 44.202.63.187:8083 \
             --username ${{ secrets.NEXUS_USERNAME }} \
             --password-stdin
