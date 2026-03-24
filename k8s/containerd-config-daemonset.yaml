@@ -8,13 +8,13 @@ data:
     #!/bin/bash
     set -e
 
-    echo "Configuring containerd for insecure registry: 98.92.113.55:8083"
+    echo "Configuring containerd for insecure registry: 44.202.63.187:8083"
 
     CONFIG_FILE="/host/etc/containerd/config.toml"
 
     # Check if registry already configured
-    if grep -q "98.92.113.55:8083" "$CONFIG_FILE"; then
-      echo "Registry 98.92.113.55:8083 already configured"
+    if grep -q "44.202.63.187:8083" "$CONFIG_FILE"; then
+      echo "Registry 44.202.63.187:8083 already configured"
     else
       echo "Adding registry configuration..."
 
@@ -22,10 +22,10 @@ data:
       cp "$CONFIG_FILE" "${CONFIG_FILE}.backup-$(date +%s)"
 
       # Add mirror configuration
-      sed -i '/\[plugins\."io\.containerd\.grpc\.v1\.cri"\.registry\.mirrors\]/a\    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."98.92.113.55:8083"]\n      endpoint = ["http://98.92.113.55:8083"]' "$CONFIG_FILE"
+      sed -i '/\[plugins\."io\.containerd\.grpc\.v1\.cri"\.registry\.mirrors\]/a\    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."44.202.63.187:8083"]\n      endpoint = ["http://44.202.63.187:8083"]' "$CONFIG_FILE"
 
       # Add TLS configuration
-      sed -i '/\[plugins\."io\.containerd\.grpc\.v1\.cri"\.registry\.configs\]/a\    [plugins."io.containerd.grpc.v1.cri".registry.configs."98.92.113.55:8083".tls]\n      insecure_skip_verify = true' "$CONFIG_FILE"
+      sed -i '/\[plugins\."io\.containerd\.grpc\.v1\.cri"\.registry\.configs\]/a\    [plugins."io.containerd.grpc.v1.cri".registry.configs."44.202.63.187:8083".tls]\n      insecure_skip_verify = true' "$CONFIG_FILE"
 
       echo "Configuration added to $CONFIG_FILE"
       echo "Restarting containerd..."

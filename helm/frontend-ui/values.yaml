@@ -9,13 +9,13 @@ namespace: csa-clone
 replicaCount: 1
 
 image:
-  repository: 98.92.113.55:8083/csa/frontend-ui
+  repository: 44.202.63.187:8083/csa/frontend-ui
   tag: "1.0.0"
   pullPolicy: IfNotPresent
 
-# Image pull secrets (if using private registry like Nexus)
-imagePullSecrets: []
-# - name: nexus-registry-secret
+# Image pull secrets (required for authenticated Nexus registry)
+imagePullSecrets:
+  - name: nexus-registry-secret
 
 nameOverride: ""
 fullnameOverride: ""

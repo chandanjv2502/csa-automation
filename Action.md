@@ -1,5 +1,9 @@
 # CSA POC - Staging Server Actions Log
 
+## Quick Links
+
+- **[Nexus Setup Guide](./how_to_setup_nexus.md)** - Complete guide for setting up Nexus Repository Manager
+
 ## Date: 2026-03-16
 
 ### 1. Explored Existing Cluster
@@ -674,7 +678,7 @@ curl -I http://k8s-csapoc-csafront-0e04e0a73b-2122475177.us-east-1.elb.amazonaws
 **Date:** 2026-03-17
 
 **Nexus Container Registry Details:**
-- **Registry URL:** `98.92.113.55:8083` (HTTP, not HTTPS)
+- **Registry URL:** `44.202.63.187:8083` (HTTP, not HTTPS)
 - **Registry Location:** EC2 instance with public IP
 - **Protocol:** HTTP (insecure registry)
 - **Credentials:**
@@ -684,12 +688,12 @@ curl -I http://k8s-csapoc-csafront-0e04e0a73b-2122475177.us-east-1.elb.amazonaws
 **Why Nexus:**
 - Private container registry for NextEra's CSA Docker images
 - Deployed on EC2 for POC (production would use Nexus HA setup)
-- All 9 CSA services push images to `98.92.113.55:8083/csa/<service>:1.0.0`
+- All 9 CSA services push images to `44.202.63.187:8083/csa/<service>:1.0.0`
 
 **Helm Charts Created:**
 - Created Helm charts for all 9 services (frontend-ui, contract-discovery, contract-ingestion, ai-extraction, csa-routing, siren-load, notification-service, mock-phoenix-api, mock-siren-api)
 - Updated `values.yaml` to pull from Nexus instead of Docker Hub
-- Example: `image.repository: 98.92.113.55:8083/csa/frontend-ui`
+- Example: `image.repository: 44.202.63.187:8083/csa/frontend-ui`
 
 **GitHub Actions Workflows:**
 - Created separate workflow for each service (9 total workflows)
@@ -932,7 +936,7 @@ systemctl restart containerd
 - Created complete Helm charts for all 9 services
 - Each chart includes: Chart.yaml, values.yaml, templates/ directory
 - Templates include: Deployment, Service, ServiceAccount, _helpers.tpl
-- Charts configured to pull from Nexus registry (98.92.113.55:8083)
+- Charts configured to pull from Nexus registry (44.202.63.187:8083)
 
 **Chart Structure:**
 ```
@@ -947,7 +951,7 @@ helm/<service-name>/
 ```
 
 **Key Configuration:**
-- Image repository: `98.92.113.55:8083/csa/<service-name>`
+- Image repository: `44.202.63.187:8083/csa/<service-name>`
 - Image tag: `1.0.0` (also pushed as `latest`)
 - Service type: ClusterIP (internal only)
 - Namespace: `csa-poc`
@@ -964,26 +968,26 @@ helm/<service-name>/
 **Commands:**
 ```bash
 # Login to Nexus
-docker login 98.92.113.55:8083 --username cicd-user --password CiCd-NexUs-2026
+docker login 44.202.63.187:8083 --username cicd-user --password CiCd-NexUs-2026
 
 # Build and push all 9 images
 for SERVICE in frontend-ui contract-discovery contract-ingestion ai-extraction csa-routing siren-load notification-service mock-phoenix-api mock-siren-api; do
-  docker build -t 98.92.113.55:8083/csa/$SERVICE:1.0.0 -t 98.92.113.55:8083/csa/$SERVICE:latest ./src/$SERVICE/
-  docker push 98.92.113.55:8083/csa/$SERVICE:1.0.0
-  docker push 98.92.113.55:8083/csa/$SERVICE:latest
+  docker build -t 44.202.63.187:8083/csa/$SERVICE:1.0.0 -t 44.202.63.187:8083/csa/$SERVICE:latest ./src/$SERVICE/
+  docker push 44.202.63.187:8083/csa/$SERVICE:1.0.0
+  docker push 44.202.63.187:8083/csa/$SERVICE:latest
 done
 ```
 
 **Images Pushed to Nexus:**
-- `98.92.113.55:8083/csa/frontend-ui:1.0.0` (and :latest)
-- `98.92.113.55:8083/csa/contract-discovery:1.0.0` (and :latest)
-- `98.92.113.55:8083/csa/contract-ingestion:1.0.0` (and :latest)
-- `98.92.113.55:8083/csa/ai-extraction:1.0.0` (and :latest)
-- `98.92.113.55:8083/csa/csa-routing:1.0.0` (and :latest)
-- `98.92.113.55:8083/csa/siren-load:1.0.0` (and :latest)
-- `98.92.113.55:8083/csa/notification-service:1.0.0` (and :latest)
-- `98.92.113.55:8083/csa/mock-phoenix-api:1.0.0` (and :latest)
-- `98.92.113.55:8083/csa/mock-siren-api:1.0.0` (and :latest)
+- `44.202.63.187:8083/csa/frontend-ui:1.0.0` (and :latest)
+- `44.202.63.187:8083/csa/contract-discovery:1.0.0` (and :latest)
+- `44.202.63.187:8083/csa/contract-ingestion:1.0.0` (and :latest)
+- `44.202.63.187:8083/csa/ai-extraction:1.0.0` (and :latest)
+- `44.202.63.187:8083/csa/csa-routing:1.0.0` (and :latest)
+- `44.202.63.187:8083/csa/siren-load:1.0.0` (and :latest)
+- `44.202.63.187:8083/csa/notification-service:1.0.0` (and :latest)
+- `44.202.63.187:8083/csa/mock-phoenix-api:1.0.0` (and :latest)
+- `44.202.63.187:8083/csa/mock-siren-api:1.0.0` (and :latest)
 
 **Status:** ✅ COMPLETED - All 9 images successfully pushed to Nexus
 
@@ -1010,7 +1014,7 @@ done
 9. `.github/workflows/deploy-mock-siren-api.yml`
 
 **Workflow Steps:**
-1. Configure Docker for insecure registry (98.92.113.55:8083)
+1. Configure Docker for insecure registry (44.202.63.187:8083)
 2. Login to Nexus using GitHub Secrets (NEXUS_USERNAME, NEXUS_PASSWORD)
 3. Checkout code
 4. Build and push Docker image to Nexus
@@ -1110,11 +1114,11 @@ gh secret set NEXUS_PASSWORD  # Value: CiCd-NexUs-2026
 ```bash
 kubectl describe pod ai-extraction-<id> -n csa-poc
 # Events:
-#   Failed to pull image "98.92.113.55:8083/csa/ai-extraction:1.0.0"
+#   Failed to pull image "44.202.63.187:8083/csa/ai-extraction:1.0.0"
 #   Error: http: server gave HTTP response to HTTPS client
 ```
 
-**Root Cause:** Kubernetes worker nodes use containerd (not Docker). Containerd defaults to HTTPS for registry communication. Nexus registry runs on HTTP (98.92.113.55:8083).
+**Root Cause:** Kubernetes worker nodes use containerd (not Docker). Containerd defaults to HTTPS for registry communication. Nexus registry runs on HTTP (44.202.63.187:8083).
 
 ---
 
@@ -1122,7 +1126,7 @@ kubectl describe pod ai-extraction-<id> -n csa-poc
 
 **Attempt 1: Create hosts.toml in certs.d directory - FAILED**
 ```yaml
-# Created /etc/containerd/certs.d/98.92.113.55:8083/hosts.toml
+# Created /etc/containerd/certs.d/44.202.63.187:8083/hosts.toml
 # Containerd didn't read this configuration
 ```
 
@@ -1143,16 +1147,16 @@ kubectl describe pod ai-extraction-<id> -n csa-poc
 1. Runs privileged pod on every Kubernetes node (DaemonSet)
 2. Mounts host filesystem at `/host`
 3. Modifies `/etc/containerd/config.toml` to add:
-   - Mirror configuration for `98.92.113.55:8083`
+   - Mirror configuration for `44.202.63.187:8083`
    - TLS `insecure_skip_verify = true` for HTTP registry
 4. Restarts containerd daemon via `nsenter`
 
 **Configuration Added to containerd:**
 ```toml
-[plugins."io.containerd.grpc.v1.cri".registry.mirrors."98.92.113.55:8083"]
-  endpoint = ["http://98.92.113.55:8083"]
+[plugins."io.containerd.grpc.v1.cri".registry.mirrors."44.202.63.187:8083"]
+  endpoint = ["http://44.202.63.187:8083"]
 
-[plugins."io.containerd.grpc.v1.cri".registry.configs."98.92.113.55:8083".tls]
+[plugins."io.containerd.grpc.v1.cri".registry.configs."44.202.63.187:8083".tls]
   insecure_skip_verify = true
 ```
 
@@ -1284,7 +1288,7 @@ Server: nginx/1.25.5
 **GitHub Actions → Nexus → Kubernetes:**
 
 1. ✅ GitHub Actions builds Docker images on push to main
-2. ✅ Images successfully pushed to Nexus registry (98.92.113.55:8083)
+2. ✅ Images successfully pushed to Nexus registry (44.202.63.187:8083)
 3. ✅ Helm deploys images to Kubernetes cluster (csa-poc namespace)
 4. ✅ Containerd configured to pull from HTTP Nexus registry
 5. ✅ All pods running with images from Nexus
@@ -1311,7 +1315,7 @@ Server: nginx/1.25.5
 - ✅ Cognito User Pool: csa-poc-user-pool (with ALB app client)
 - ✅ ALB: Internet-facing load balancer with target group
 - ✅ IAM Roles: IRSA role for pods, ALB controller role
-- ✅ Nexus Registry: 98.92.113.55:8083 (HTTP, cicd-user/CiCd-NexUs-2026)
+- ✅ Nexus Registry: 44.202.63.187:8083 (HTTP, cicd-user/CiCd-NexUs-2026)
 
 **Kubernetes Resources:**
 - ✅ Namespace: csa-poc
@@ -1370,7 +1374,7 @@ Server: nginx/1.25.5
 
 **All services:**
 - Running on Kubernetes in csa-poc namespace
-- Pulling images from Nexus registry (98.92.113.55:8083)
+- Pulling images from Nexus registry (44.202.63.187:8083)
 - Using IRSA for AWS service access
 - Internal communication via ClusterIP services
 
@@ -1518,7 +1522,7 @@ git push origin main
 10. ✅ Deploy to EKS (Run ID: 23181921576)
 
 **What Happened in Each Workflow:**
-1. Configured Docker for insecure registry (98.92.113.55:8083)
+1. Configured Docker for insecure registry (44.202.63.187:8083)
 2. Logged in to Nexus
 3. Built new Docker images with boto3 installed
 4. Pushed images to Nexus with tags 1.0.0 and latest
@@ -1546,7 +1550,7 @@ kubectl describe serviceaccount contract-discovery -n csa-poc
 
 **Docker Image Status:**
 - New images pushed to Nexus with boto3 included
-- Images available at: `98.92.113.55:8083/csa/<service>:1.0.0`
+- Images available at: `44.202.63.187:8083/csa/<service>:1.0.0`
 
 ---
 
@@ -1637,5 +1641,78 @@ print('Message sent:', response['MessageId'])
 2. Wait for pods to restart (30-60 seconds)
 3. Test SQS connectivity as documented above
 4. Proceed with integration testing
+
+---
+
+## Step 45: Comprehensive Nexus Setup Documentation
+
+**Date:** 2026-03-24
+
+**Actions Taken:**
+
+Created comprehensive documentation for setting up Nexus Repository Manager from scratch in the nextera-clone environment.
+
+**Documentation Created:**
+1. `how_to_setup_nexus.md` - Complete step-by-step guide
+2. Added reference link in Action.md Quick Links section
+
+**Guide Contents:**
+- **Step 1-7:** EC2 instance creation and setup
+  - VPC and subnet selection from EKS cluster
+  - Security group creation (ports 22, 8081-8084)
+  - SSH key pair generation
+  - EC2 instance launch (t3.small with 2GB RAM)
+  - Public IP retrieval and SSH access
+
+- **Step 2:** Docker and Nexus installation
+  - Docker installation and configuration
+  - Nexus container deployment with reduced memory settings
+  - Memory limits: `-Xms512m -Xmx1536m -XX:MaxDirectMemorySize=512m`
+  - Initial admin password retrieval
+
+- **Step 3:** Nexus UI setup wizard
+  - Initial login with default credentials
+  - Admin password change
+  - Anonymous access configuration
+
+- **Step 4:** CI/CD user creation
+  - Username: `cicd-user`
+  - Password: `CiCd-NexUs-2026`
+  - Role: `nx-admin`
+
+- **Step 5:** Docker repository configuration
+  - docker-hosted (port 8083) - Primary push target
+  - docker-proxy (port 8082) - DockerHub cache (optional)
+  - docker-group (port 8084) - Combined registry (optional)
+
+- **Step 6-9:** Integration and testing
+  - GitHub secrets configuration
+  - Local Docker testing
+  - Kubernetes containerd configuration
+  - Troubleshooting guides
+
+**Why This Was Needed:**
+- User requested documentation starting from EC2 installation
+- Previous sessions had manual Nexus setup but no written guide
+- Enables reproducible Nexus deployments
+- Provides complete reference for future environments
+
+**Nexus Instance Details:**
+- **EC2 Instance Type:** t3.small (2GB RAM minimum for Nexus)
+- **Public IP:** 44.202.63.187
+- **Nexus UI:** http://44.202.63.187:8081
+- **Docker Registry:** 44.202.63.187:8083
+- **Admin Username:** admin
+- **Admin Password:** CstgQa-123
+- **CI/CD Username:** cicd-user
+- **CI/CD Password:** CiCd-NexUs-2026
+- **SSH Key Location:** `./nextera-clone-nexus-key.pem` (also in `~/.ssh/nextera-clone-nexus-key.pem`)
+- **SSH Command:** `ssh -i ./nextera-clone-nexus-key.pem ec2-user@44.202.63.187`
+
+**Files Updated:**
+- `how_to_setup_nexus.md` - NEW comprehensive guide
+- `Action.md` - Added Quick Links section with Nexus guide reference
+
+**Status:** ✅ COMPLETED - Nexus setup documentation complete
 
 ---

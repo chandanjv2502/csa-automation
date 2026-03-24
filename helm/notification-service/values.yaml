@@ -4,11 +4,12 @@ namespace: csa-clone
 replicaCount: 1
 
 image:
-  repository: 98.92.113.55:8083/csa/notification-service
+  repository: 44.202.63.187:8083/csa/notification-service
   tag: "1.0.0"
   pullPolicy: IfNotPresent
 
-imagePullSecrets: []
+imagePullSecrets:
+  - name: nexus-registry-secret
 
 serviceAccount:
   create: true

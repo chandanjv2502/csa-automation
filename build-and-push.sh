@@ -5,7 +5,7 @@
 
 set -e  # Exit on error
 
-REGISTRY="98.92.113.55:8083"
+REGISTRY="44.202.63.187:8083"
 VERSION="1.0.0"
 
 # Color output
